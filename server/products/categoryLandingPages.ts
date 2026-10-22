@@ -104,7 +104,8 @@ export type CategoryLandingPage = {
   facts: Array<{ value: string; label: string }>;
   /** Vergleiche: Schlüssel aus dem Regal-Lexikon oder eigene (extraComparisons) */
   systems: { title: string; intro: string; comparisons: string[]; extraComparisons?: GlossaryComparison[] };
-  tiles: Array<LandingLink & { text: string }>;
+  /** Kacheln „Direkt bestellen“; `image` = Artikelnummer, deren Titelbild die Kachel zeigt (passend zum Text) */
+  tiles: Array<LandingLink & { text: string; image: string }>;
   guide: BuildGuide;
   planImages: Array<{ src: string; alt: string }>;
   planNote: string;
@@ -197,10 +198,10 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       comparisons: ["s3-geclincht", "diagonal-laengsriegel"],
     },
     tiles: [
-      { label: "Grundregale", text: "Das erste Feld jeder Regalzeile: 2 Rahmen und Fachböden", href: "/clip-grundregale" },
-      { label: "Anbauregale", text: "Jedes weitere Feld: 1 Rahmen und Fachböden", href: "/clip-anbauregale" },
-      { label: "Böden und Auflagen", text: "Zusatz-Fachböden, Drahtböden und weitere Zusatzebenen", href: "/clip-boeden-und-auflagen" },
-      { label: "Zubehör", text: "Fachteiler, Wandbefestigung, Rammschutz und mehr", href: "/clip-zubehoer" },
+      { label: "Grundregale", text: "Das erste Feld jeder Regalzeile: 2 Rahmen und Fachböden", href: "/clip-grundregale", image: "4026212015201" },
+      { label: "Anbauregale", text: "Jedes weitere Feld: 1 Rahmen und Fachböden", href: "/clip-anbauregale", image: "4026212015324" },
+      { label: "Böden und Auflagen", text: "Zusatz-Fachböden, Drahtböden und weitere Zusatzebenen", href: "/clip-boeden-und-auflagen", image: "4026212018257" },
+      { label: "Zubehör", text: "Fachteiler, Wandbefestigung, Rammschutz und mehr", href: "/clip-zubehoer", image: "4026212434095" },
     ],
     guide: {
       title: "So bauen Sie Ihr META CLIP Fachbodenregal",
@@ -402,10 +403,10 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       comparisons: ["verzinkt-lichtgrau", "grund-anbau"],
     },
     tiles: [
-      { label: "Grundregale", text: "Das erste Regal einer Zeile: 2 Rahmen mit Stahlfüßen und Fachböden", href: "/compact-grundregale" },
-      { label: "Anbauregale", text: "Jedes weitere Regal: 1 Rahmen und Fachböden", href: "/compact-anbauregale" },
-      { label: "Büro, Archiv und Verwaltung", text: "Branchenlösung mit Planungshilfe für Ordner und Akten", href: "/branchen/buero-archiv-verwaltung" },
-      { label: "Fachbodenregale", text: "META CLIP für schwerere Lasten bis 330 kg je Boden", href: "/fachbodenregale/" },
+      { label: "Grundregale", text: "Das erste Regal einer Zeile: 2 Rahmen mit Stahlfüßen und Fachböden", href: "/compact-grundregale", image: "4026212287813" },
+      { label: "Anbauregale", text: "Jedes weitere Regal: 1 Rahmen und Fachböden", href: "/compact-anbauregale", image: "4026212287820" },
+      { label: "Büro, Archiv und Verwaltung", text: "Branchenlösung mit Planungshilfe für Ordner und Akten", href: "/branchen/buero-archiv-verwaltung", image: "4026212287875" },
+      { label: "Fachbodenregale", text: "META CLIP für schwerere Lasten bis 330 kg je Boden", href: "/fachbodenregale/", image: "4026212015201" },
     ],
     guide: {
       title: "So bauen Sie Ihr META COMPACT Büroregal",
@@ -600,10 +601,10 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       ],
     },
     tiles: [
-      { label: "Grundregale", text: "Das erste Feld: 2 Ständerrahmen mit Bodenankern und Holmen", href: "/multipal-grundregale" },
-      { label: "Anbauregale", text: "Jedes weitere Feld: 1 Ständerrahmen mit Bodenankern und Holmen", href: "/multipal-anbauregale" },
-      { label: "Böden und Auflagen", text: "Drahtböden, Gitterroste, Spanplatten und Tiefenauflagen", href: "/multipal-boeden-und-auflagen" },
-      { label: "Zubehör", text: "Sicherungsstifte, Durchschubsicherung, Distanzstücke und mehr", href: "/multipal-zubehoer" },
+      { label: "Grundregale", text: "Das erste Feld: 2 Ständerrahmen mit Bodenankern und Holmen", href: "/multipal-grundregale", image: "4026212334623" },
+      { label: "Anbauregale", text: "Jedes weitere Feld: 1 Ständerrahmen mit Bodenankern und Holmen", href: "/multipal-anbauregale", image: "4026212323795" },
+      { label: "Böden und Auflagen", text: "Drahtböden, Gitterroste, Spanplatten und Tiefenauflagen", href: "/multipal-boeden-und-auflagen", image: "4026212401509" },
+      { label: "Zubehör", text: "Sicherungsstifte, Durchschubsicherung, Distanzstücke und mehr", href: "/multipal-zubehoer", image: "4026212347777" },
     ],
     guide: {
       title: "So bauen Sie Ihr META MULTIPAL Palettenregal",
@@ -786,10 +787,10 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       comparisons: ["multistrong-atlas", "light-medium"],
     },
     tiles: [
-      { label: "MULTISTRONG Grundregale", text: "Das erste Feld: 2 Kragarmständer mit Armen und Ausfachung", href: "/multistrong-grundregale" },
-      { label: "MULTISTRONG Anbauregale", text: "Jedes weitere Feld: 1 Kragarmständer mit Armen", href: "/multistrong-anbauregale" },
-      { label: "ATLAS ST Komplettregale", text: "Geschweißte Komplettregale mit 2 bis 5 Feldern", href: "/atlas-st-komplettregale" },
-      { label: "Zubehör", text: "Abrolldorne, Zusatz-Fachböden und Aufsteckhalter", href: "/kragarmregal-zubehoer" },
+      { label: "MULTISTRONG Grundregale", text: "Das erste Feld: 2 Kragarmständer mit Armen und Ausfachung", href: "/multistrong-grundregale", image: "4026212118889" },
+      { label: "MULTISTRONG Anbauregale", text: "Jedes weitere Feld: 1 Kragarmständer mit Armen", href: "/multistrong-anbauregale", image: "4026212118896" },
+      { label: "ATLAS ST Komplettregale", text: "Geschweißte Komplettregale mit 2 bis 5 Feldern", href: "/atlas-st-komplettregale", image: "4026212275384" },
+      { label: "Zubehör", text: "Abrolldorne, Zusatz-Fachböden und Aufsteckhalter", href: "/kragarmregal-zubehoer", image: "4026212118445" },
     ],
     guide: {
       title: "So bauen Sie Ihr META Kragarmregal",
@@ -957,10 +958,10 @@ export const CATEGORY_LANDING_PAGES: CategoryLandingPage[] = [
       comparisons: ["speedrack-minirack", "fachboden-weitspann"],
     },
     tiles: [
-      { label: "MINI-RACK Grundregale", text: "Das erste Feld: 2 Rahmen und 3 Einlegeböden", href: "/mini-rack-grundregale" },
-      { label: "MINI-RACK Anbauregale", text: "Jedes weitere Feld: 1 Rahmen und 3 Einlegeböden", href: "/mini-rack-anbauregale" },
-      { label: "SPEED-RACK Komplettregale", text: "Gesteckte Einzelregale, Nennmaße = Istmaße", href: "/speed-rack-komplettregale" },
-      { label: "Zubehör", text: "Unterzüge, Trennbügel, Profilverbinder und Anker", href: "/weitspannregal-zubehoer" },
+      { label: "MINI-RACK Grundregale", text: "Das erste Feld: 2 Rahmen und 3 Einlegeböden", href: "/mini-rack-grundregale", image: "4026212057737" },
+      { label: "MINI-RACK Anbauregale", text: "Jedes weitere Feld: 1 Rahmen und 3 Einlegeböden", href: "/mini-rack-anbauregale", image: "4026212057768" },
+      { label: "SPEED-RACK Komplettregale", text: "Gesteckte Einzelregale, Nennmaße = Istmaße", href: "/speed-rack-komplettregale", image: "4026212204995" },
+      { label: "Zubehör", text: "Unterzüge, Trennbügel, Profilverbinder und Anker", href: "/weitspannregal-zubehoer", image: "4026212050394" },
     ],
     guide: {
       title: "So bauen Sie Ihr META Weitspannregal",
@@ -1188,5 +1189,5 @@ export function catalogSpans(page: CategoryLandingPage): Array<{ label: string; 
 
 /** Artikelnummern, die der Entwurf aus dem Shop-Stand braucht */
 export function landingProductNumbers(page: CategoryLandingPage): string[] {
-  return [...new Set([...page.productNumbers, ...page.guide.example.lines.map((l) => l.number)])];
+  return [...new Set([...page.productNumbers, ...page.guide.example.lines.map((l) => l.number), ...page.tiles.map((t) => t.image)])];
 }

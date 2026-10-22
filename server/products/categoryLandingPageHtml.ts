@@ -28,6 +28,12 @@ const fmt = (n: number) => n.toLocaleString("de-DE");
 /** Externe Links in neuem Tab, Shop-Links im selben */
 const ext = (href: string) => (/^https?:/.test(href) ? ' target="_blank" rel="noopener"' : "");
 const TERM_NAMES = new Map(GLOSSARY_TERMS.map((t) => [t.key, t.term]));
+/** Alt-Text aus dem Artikelnamen: System, Art und Rolle („META CLIP | Fachbodenregal | Grundregal | …“ → „META CLIP Fachbodenregal, Grundregal“) */
+export const productAlt = (name: string) => {
+  const seg = name.split("|").map((x) => x.trim()).filter(Boolean);
+  const role = /regal$/i.test(seg[2] ?? "") ? `, ${seg[2]}` : "";
+  return `${seg.slice(0, 2).join(" ")}${role}`;
+};
 
 /** Text mit Lexikon-Verweisen [[schluessel]] / [[schluessel|Text]] als HTML; unbekannte Schluessel werfen. */
 export function landingTextHtml(text: string): string {
@@ -229,11 +235,19 @@ export class CategoryLandingHtml {
 </div></section>`;
   }
 
-  /** E: Direkt zum Sortiment */
+  /**
+   * E: Direkt zum Sortiment. Kachel = Kasten mit Bild oben und Link, der per ::after die ganze Kachel
+   * klickbar macht – so kann später ein eigener Knopf auf dem Bild liegen (z. B. 3D-Ansicht), ohne Knopf im Link.
+   */
   tiles(): string {
+    const tile = (t: CategoryLandingPage["tiles"][number]) => {
+      const p = this.product(t.image);
+      const img = p.image ? `<div class="t-img"><img src="${esc(p.image)}" alt="${esc(productAlt(p.name))}" loading="lazy"></div>` : "";
+      return `<div class="tile">${img}<a href="${esc(t.href)}"><strong>${esc(t.label)}</strong><span>${esc(t.text)}</span><em>Ansehen →</em></a></div>`;
+    };
     return `<section class="sec sec-grey" id="sortiment"><div class="wrap">
   <div class="sec-head"><div><span class="eyebrow">Direkt bestellen</span><h2>${esc(this.page.name)} im Shop</h2></div></div>
-  <div class="tiles">${this.page.tiles.map((t) => `<a href="${esc(t.href)}"><strong>${esc(t.label)}</strong><span>${esc(t.text)}</span><em>Ansehen →</em></a>`).join("")}</div>
+  <div class="tiles">${this.page.tiles.map(tile).join("")}</div>
   ${this.note("tiles")}
 </div></section>`;
   }
@@ -415,8 +429,12 @@ a.lex:hover{color:var(--red)}
 .cmp .minus li::before{content:"–";position:absolute;left:0;font-weight:800;color:#a05f00}
 .cmp .fit{margin:auto 0 0;font-size:13px;font-weight:600;color:var(--ink);border-top:1px solid var(--line);padding-top:8px}
 .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--line);border-left:1px solid var(--line)}
-.tiles a{border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;padding:22px 20px;text-decoration:none;display:flex;flex-direction:column;gap:6px;transition:box-shadow .15s}
-.tiles a:hover{box-shadow:inset 0 -3px 0 var(--red)}
+.tiles .tile{position:relative;display:flex;flex-direction:column;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:#fff;transition:box-shadow .15s}
+.tiles .tile:hover{box-shadow:inset 0 -3px 0 var(--red)}
+.tiles .t-img{position:relative;height:190px;padding:16px 16px 0;display:flex;align-items:center;justify-content:center}
+.tiles .t-img img{max-width:100%;max-height:100%;width:auto;height:100%;object-fit:contain}
+.tiles a{flex:1;padding:18px 20px 22px;text-decoration:none;display:flex;flex-direction:column;gap:6px}
+.tiles a::after{content:"";position:absolute;inset:0}
 .tiles strong{font-size:16px;color:var(--ink)}
 .tiles span{font-size:13.5px;color:var(--muted);line-height:1.45}
 .tiles em{font-style:normal;font-weight:600;font-size:13.5px;margin-top:auto;padding-top:6px;color:var(--ink)}
@@ -467,7 +485,7 @@ table.spans td{font-size:13.5px}
 .more-links a{display:block;padding:13px 0;font-weight:600;font-size:14.5px;text-decoration:none;color:var(--ink)}
 .more-links a:hover{color:var(--red)}
 @media (max-width:1100px){.cmps,.seo,.plan.masse,.plan.masse.multi{grid-template-columns:1fr}.tiles{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}}
-@media (max-width:760px){.facts strong{font-size:16px;white-space:normal}.cmp .sides,.dodont,.plan-imgs,.plan.masse.multi .spans-col{grid-template-columns:1fr}.tiles{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.step{padding:18px 16px}.cmp{padding:16px}}
+@media (max-width:760px){.tiles .tile{flex-direction:row}.tiles .t-img{flex:none;width:112px;height:auto;min-height:112px;padding:10px 0 10px 10px}.tiles a{padding:14px 16px}.facts strong{font-size:16px;white-space:normal}.cmp .sides,.dodont,.plan-imgs,.plan.masse.multi .spans-col{grid-template-columns:1fr}.tiles{grid-template-columns:1fr}.steps{grid-template-columns:1fr}.step{padding:18px 16px}.cmp{padding:16px}}
 `;
 
 /** Stylesheet: ohne Rahmen fuer den Entwurf, mit Rahmen (`.mbp`) fuer das HTML-Element im Shop */

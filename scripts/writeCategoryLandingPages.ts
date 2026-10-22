@@ -16,7 +16,8 @@
  * Ohne --apply nur Testlauf. Schreibt nur in Shops mit „test.“ in der URL, außer mit --live.
  *
  * Aufruf (lokal mit Docker-DB oder im App-Container):
- *   NODE_ENV=development npx tsx scripts/writeCategoryLandingPages.ts <tenantId> --only fachboden [--apply] [--live] [--protocol-dir <ordner>]
+ *   NODE_ENV=development npx tsx scripts/writeCategoryLandingPages.ts <tenantId> --only fachboden [--apply] [--live] [--protocol-dir <ordner>] [--image-fallback https://shop.meta-online.com]
+ *   (--image-fallback: Kachelbilder, die im Ziel-Shop nicht abrufbar sind – Testshop ohne Bilddateien –, von dieser Adresse)
  *   NODE_ENV=development npx tsx scripts/writeCategoryLandingPages.ts <tenantId> --revert <protokoll.json>
  */
 import { createHash } from "crypto";
@@ -175,6 +176,12 @@ async function main(): Promise<void> {
   const de = await findDeChannel(api, base);
   const loaded = await loadIndustryShopProducts(api, [...new Set(pages.flatMap(landingProductNumbers))], de);
   if (loaded.problems.length) throw new Error(`Artikel nicht verwendbar:\n${loaded.problems.map(productProblemText).join("\n")}`);
+  const fallback = arg("--image-fallback")?.replace(/\/$/, "");
+  for (const num of new Set(pages.flatMap((p) => p.tiles.map((t) => t.image)))) {
+    const p = loaded.products[num];
+    if (!p.image) console.log(`  Kachelbild ${num}: Artikel ohne Bild – Kachel ohne Bild`);
+    else if (!(await fetch(p.image, { method: "HEAD" }).catch(() => null))?.ok) p.image = fallback ? `${fallback}${new URL(p.image).pathname}` : null;
+  }
   const commonGroup = (await api("POST", "search/hueb-seo-faq-group", { ids: [COMMON_FAQ_GROUP_ID] }))?.data?.[0];
   if (!commonGroup) throw new Error("Gemeinsame FAQ-Gruppe „Sicherheit und Regalprüfung“ fehlt – erst writeIndustryPages.ts laufen lassen");
 
