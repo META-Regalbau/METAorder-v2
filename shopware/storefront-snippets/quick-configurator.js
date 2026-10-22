@@ -11,7 +11,7 @@
  *   1 Grundregal und n Anbauregalen zusammen (so lang wie möglich, nie länger als angegeben), zeigt bei
  *   Bedarf eine Zeile mit gemischten Feldbreiten, holt die Preise in der Sitzung des Kunden von den
  *   Produktseiten (Händler- und Kundenpreise stimmen) und legt alles mit einem Klick in den Warenkorb.
- *   Neben der Regallänge steht das Produktbild eines Beispiel-Grundregals der gewählten Regalart (aus der Tabelle).
+ *   Rechts neben den Eingaben steht das Produktbild eines Beispiel-Grundregals der gewählten Regalart (aus der Tabelle).
  * - Startseite: kleines Formular (Abschnitt aus writeQuickConfiguratorPage.ts --home), das zur Seite führt.
  * - Einstiegskasten auf den Seiten und Listen der Regalarten.
  * - Produktseite eines Grund- oder Anbauregals: Link zum Konfigurator mit den Maßen des Artikels.
@@ -866,6 +866,7 @@ var MetaQuickConfigurator = (function () {
     root.appendChild(results);
 
     var fields = {};
+    var fieldBox = null;
     var lengthInput = null;
     var lengthBox = null;
     var weightInput = null;
@@ -884,7 +885,7 @@ var MetaQuickConfigurator = (function () {
         control.setAttribute('aria-describedby', h.id);
         wrap.appendChild(h);
       }
-      form.appendChild(wrap);
+      fieldBox.appendChild(wrap);
       fields[key] = control;
       return control;
     }
@@ -919,11 +920,15 @@ var MetaQuickConfigurator = (function () {
       var len = lengthField('meta-qc-length', typed);
       lengthBox = len.box;
       lengthInput = len.input;
-      var top = el('div', 'meta-qc__top');
-      top.appendChild(lengthBox);
+      // Links die Eingaben (Länge, darunter die Auswahlfelder), rechts das Bild der Regalart
+      var inputs = el('div', 'meta-qc__inputs');
+      inputs.appendChild(lengthBox);
+      fieldBox = el('div', 'meta-qc__fields');
+      inputs.appendChild(fieldBox);
+      form.appendChild(inputs);
       var fig = picture(q.kind, images);
-      if (fig) top.appendChild(fig);
-      form.appendChild(top);
+      form.classList.toggle('meta-qc__form--picture', !!fig);
+      if (fig) form.appendChild(fig);
       lengthInput.addEventListener('input', onTyping);
       var kindSelect = el('select', 'form-select');
       availableKinds(items).forEach(function (k) {
