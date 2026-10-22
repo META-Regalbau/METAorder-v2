@@ -336,6 +336,8 @@
 .meta-qc__top .meta-qc-length {
   flex: 1 1 auto;
   max-width: none;
+  /* Kasten wird auf die Bildhöhe gestreckt: Zeilen nicht mitstrecken, sonst rutscht „mm“ unter das Feld */
+  align-content: start;
 }
 .meta-qc__picture {
   flex: 0 0 320px;
