@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HOME_HERO, HOME_HERO_MARKER, homeHeroHtml } from "../../server/products/homeHero";
+import { HOME_HERO, HOME_HERO_MARKER, demoteH1, homeHeroHtml } from "../../server/products/homeHero";
 import { CONTACT } from "../../server/products/industryPages";
 import { COMPETITOR_NAMES } from "../../shared/competitorNames";
 
@@ -17,9 +17,15 @@ describe("homeHero", () => {
     expect(links.filter((l) => !l.startsWith("tel:")).every((l) => l.startsWith("/"))).toBe(true);
   });
 
-  it("enthält nur eine Überschrift zweiter Ordnung (die H1 der Startseite bleibt unverändert)", () => {
-    expect(html).not.toMatch(/<h1/);
-    expect(html.match(/<h2/g)).toHaveLength(1);
+  it("trägt die H1 der Startseite (Regale für Lager, Betrieb und Industrie)", () => {
+    expect(html.match(/<h1[\s>]/g)).toHaveLength(1);
+    expect(html).toContain(">Regale für Lager, Betrieb und Industrie</h1>");
+    expect(html).not.toMatch(/<h2/);
+  });
+
+  it("macht aus der bisherigen H1 eine H2 und lässt andere Überschriften stehen", () => {
+    expect(demoteH1('<h1 class="x">META Regalsysteme</h1><p>Text</p><h2>Weiter</h2>')).toBe('<h2 class="x">META Regalsysteme</h2><p>Text</p><h2>Weiter</h2>');
+    expect(demoteH1("<H1>A</H1><header>B</header>")).toBe("<h2>A</h2><header>B</header>");
   });
 
   it("verspricht nichts Unbelegtes und nennt keine Wettbewerber", () => {

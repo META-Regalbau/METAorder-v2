@@ -12,6 +12,9 @@ import type { IndustryContact } from "@shared/shopContent";
 /** Kennzeichen der eigenen Fassung im Shop-HTML (Schreibskript, Prüfung) */
 export const HOME_HERO_MARKER = 'data-mbp="hero"';
 
+/** Bisherige H1 der Startseite (Agentur-Text) wird zur H2, Attribute bleiben */
+export const demoteH1 = (html: string) => html.replace(/<h1(?=[\s>])/gi, "<h2").replace(/<\/h1>/gi, "</h2>");
+
 /** Bild des bisherigen Sliders (Medium im Shop, gleiche ID in Live und Testshop) */
 export const HOME_HERO_IMAGE_ALT = "META Fachbodenregal mit Fachteilern";
 
@@ -27,7 +30,7 @@ export type HomeHero = {
 
 export const HOME_HERO: HomeHero = {
   eyebrow: "Regalsysteme vom Hersteller",
-  title: "Regale für Lager, Betrieb und Büro",
+  title: "Regale für Lager, Betrieb und Industrie",
   lead: "Fachboden-, Paletten-, Kragarm-, Weitspann- und Büroregale von META – direkt online bestellen. Für Geschäftskunden.",
   primary: {
     label: "Regal konfigurieren",
@@ -103,7 +106,7 @@ export function homeHeroHtml(image: string | null, scope = ".mbp", h: HomeHero =
   ${image ? `<img class="hh-bg" src="${esc(image)}" alt="${esc(HOME_HERO_IMAGE_ALT)}" fetchpriority="high">` : ""}
   <div class="wrap hh-inner"><div class="hh-text">
     <span class="eyebrow">${esc(h.eyebrow)}</span>
-    <h2 class="hh-title">${esc(h.title)}</h2>
+    <h1 class="hh-title">${esc(h.title)}</h1>
     <p class="hh-lead">${esc(h.lead)}</p>
     <div class="hh-cta">
       <a class="btn" href="${esc(h.primary.href)}">${ICON_CONFIG}${esc(h.primary.label)}</a>

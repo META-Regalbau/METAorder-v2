@@ -3,7 +3,10 @@
  * Beratung und Regalarten. Er steht direkt vor dem Agentur-Slider und gilt nur im DE-Kanal; der Slider wird
  * auf die übrigen Kanäle mit diesem Layout beschränkt (AT, PL behalten ihn), ohne solche Kanäle ausgeblendet.
  *
- * Kanal-Einstellung und Sichtbarkeit des Sliders vor dem ersten Lauf liegen im Protokoll und zusätzlich im
+ * Der Header trägt die H1 der Startseite. Die bisherige H1 im Agentur-Text (SEO-Text unten) wird zur H2,
+ * nur in der deutschen Fassung (öffentlich nur im DE-Shop sichtbar: AT steht hinter Login/Wartung, PL hat eigene Sprache).
+ *
+ * Kanal-Einstellung und Sichtbarkeit des Sliders sowie der alte Text vor dem ersten Lauf liegen im Protokoll und zusätzlich im
  * eigenen Abschnitt (customFields.metaorder_home_hero) – so stellt auch das Protokoll eines späteren Laufs
  * den Ursprung wieder her. Ein zweiter Lauf ersetzt nur den eigenen Abschnitt.
  *
@@ -18,7 +21,7 @@
  */
 import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
-import { HOME_HERO_MARKER, homeHeroHtml } from "../server/products/homeHero";
+import { HOME_HERO_MARKER, demoteH1, homeHeroHtml } from "../server/products/homeHero";
 import { homeHeroId } from "../server/shopContent/shopEntityIds";
 import { DE_CHANNEL_NAME, findDeChannel, shopApi } from "../server/shopContent/shopProducts";
 
@@ -29,7 +32,10 @@ const IMAGE_FILE = "slider-fachbodenregal-arc-weiss-1920x453";
 const IDS = { section: homeHeroId("section"), block: homeHeroId("block"), slot: homeHeroId("slot") };
 
 type SliderBefore = { sectionId: string; customFields: unknown; visibility: unknown };
-type Protocol = { tenantId: string; at: string; base: string; pageId: string; position: number; replaced: boolean; slider: SliderBefore };
+/** Text-Element mit der bisherigen H1 (deutsche Fassung) */
+type H1SlotBefore = { slotId: string; config: unknown };
+type Protocol = { tenantId: string; at: string; base: string; pageId: string; position: number; replaced: boolean; slider: SliderBefore; h1Slot?: H1SlotBefore | null };
+
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -65,6 +71,11 @@ async function main(): Promise<void> {
     const before: SliderBefore = own?.customFields?.metaorder_home_hero?.slider ?? log.slider;
     await api("PATCH", `cms-section/${before.sectionId}`, { customFields: before.customFields, visibility: before.visibility });
     console.log("Slider wiederhergestellt");
+    const h1Before: H1SlotBefore | null | undefined = own?.customFields?.metaorder_home_hero?.h1Slot ?? log.h1Slot;
+    if (h1Before) {
+      await api("PATCH", `cms-slot/${h1Before.slotId}`, { config: h1Before.config });
+      console.log("H1 im Agentur-Text wiederhergestellt");
+    }
     if (own) {
       await api("DELETE", `cms-section/${IDS.section}`);
       for (const x of secs.filter((x) => x.position > own.position)) await api("PATCH", `cms-section/${x.id}`, { position: x.position - 1 });
@@ -92,6 +103,21 @@ async function main(): Promise<void> {
   };
   const position = existing ? existing.position : slider.position;
 
+  // Bisherige H1 der Startseite (Text-Element außerhalb des eigenen Abschnitts)
+  const slotSecs = (await api("POST", "search/cms-section", {
+    limit: 100,
+    filter: [{ type: "equals", field: "pageId", value: pageId }],
+    associations: { blocks: { associations: { slots: {} } } },
+  }))?.data ?? [];
+  const h1Slots = slotSecs
+    .filter((x: any) => x.id !== IDS.section)
+    .flatMap((x: any) => (x.blocks ?? []).flatMap((b: any) => b.slots ?? []))
+    .filter((x: any) => /<h1[\s>]/i.test(String((x.translated?.config ?? x.config)?.content?.value ?? "")));
+  if (h1Slots.length > 1) throw new Error(`Mehrere Text-Elemente mit H1 auf der Startseite (${h1Slots.map((x: any) => x.id).join(", ")}) – nichts geändert`);
+  const h1Slot = h1Slots[0];
+  const h1Before: H1SlotBefore | null =
+    existing?.customFields?.metaorder_home_hero?.h1Slot ?? (h1Slot ? { slotId: h1Slot.id, config: h1Slot.translated?.config ?? h1Slot.config } : null);
+
   // Übrige Kanäle mit diesem Startseiten-Layout behalten den Slider
   const channels = (await api("POST", "search/sales-channel", {
     limit: 50,
@@ -116,10 +142,11 @@ async function main(): Promise<void> {
     `${apply ? (existing ? "ERSETZE" : "LEGE AN") : existing ? "würde ersetzen" : "würde anlegen"} Header an Position ${position} (vor dem Slider), nur Kanal ${DE_CHANNEL_NAME}, HTML ${Math.round(html.length / 1024)} KB`,
   );
   console.log(`  Slider ${others.length ? `nur noch in: ${others.map((c: any) => c.name).join(", ")}` : "ausgeblendet (kein weiterer Kanal mit diesem Layout)"}`);
+  console.log(`  H1: ${h1Slot ? `Agentur-Text ${h1Slot.id} → H2, Header bekommt die H1` : h1Before ? "Agentur-Text schon H2" : "keine bisherige H1 gefunden"}`);
   if (!apply) return;
 
   const file = `/app/tmp-claude/startseite-header-${tenantId.slice(0, 8)}-${Date.now()}.json`;
-  const log: Protocol = { tenantId, at: new Date().toISOString(), base, pageId, position, replaced: !!existing, slider: sliderBefore };
+  const log: Protocol = { tenantId, at: new Date().toISOString(), base, pageId, position, replaced: !!existing, slider: sliderBefore, h1Slot: h1Before };
   writeFileSync(file, JSON.stringify(log, null, 1));
 
   if (existing) await api("DELETE", `cms-section/${IDS.section}`);
@@ -132,7 +159,7 @@ async function main(): Promise<void> {
     sizingMode: "full_width",
     mobileBehavior: "wrap",
     visibility: ALL_DEVICES,
-    customFields: { moorl_section_config: { color: null, salesChannel: [de.id] }, metaorder_home_hero: { slider: sliderBefore } },
+    customFields: { moorl_section_config: { color: null, salesChannel: [de.id] }, metaorder_home_hero: { slider: sliderBefore, h1Slot: h1Before } },
     blocks: [
       {
         id: IDS.block,
@@ -156,11 +183,15 @@ async function main(): Promise<void> {
       ? { customFields: { ...((sliderBefore.customFields as any) ?? {}), moorl_section_config: { color: null, ...sliderCfg, salesChannel: others.map((c: any) => c.id) } } }
       : { visibility: NO_DEVICES },
   );
+  if (h1Slot) {
+    const cfg = (h1Slot.translated?.config ?? h1Slot.config) as any;
+    await api("PATCH", `cms-slot/${h1Slot.id}`, { config: { ...cfg, content: { ...cfg.content, value: demoteH1(String(cfg.content.value)) } } });
+  }
   console.log(`Protokoll: ${file}`);
   if (isTest) await api("DELETE", "_action/cache").catch((e) => console.log("Cache", e.message));
   const r = await fetch(`${de.domain}/?mbp=${Date.now()}`);
   const body = await r.text();
-  console.log(`${r.status} ${de.domain}/ – Header ${body.includes(HOME_HERO_MARKER) ? "sichtbar" : "NICHT im HTML (Cache?)"}, Slider ${body.includes("ssik-extra-slider") ? "noch da" : "weg"}`);
+  console.log(`${r.status} ${de.domain}/ – Header ${body.includes(HOME_HERO_MARKER) ? "sichtbar" : "NICHT im HTML (Cache?)"}, Slider ${body.includes("ssik-extra-slider") ? "noch da" : "weg"}, H1: ${(body.match(/<h1[\s>]/g) ?? []).length}`);
 }
 
 main()
