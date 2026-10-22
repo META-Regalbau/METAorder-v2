@@ -215,7 +215,7 @@ export const GLOSSARY_SCRIPT = `(function(){
 
 /** Stylesheet; Tokens wie die Branchenseiten (Inter, Rot #ff0002, eckige Kanten, Hellgrau-Abschnitte) */
 const GLOSSARY_CSS = `
-:root{--red:#ff0002;--red-d:#d10002;--ink:#131313;--text:#2b2b2b;--muted:#6b6b6a;--line:#e3e3e3;--bg-grey:#f4f4f4;--ok:#1e8e3e;--warn:#9a5b00;--wrap:1280px;--gutter:20px}
+:root{--red:#ff0002;--red-d:#d10002;--ink:#131313;--text:#2b2b2b;--muted:#6b6b6a;--line:#e3e3e3;--bg-grey:#f4f4f4;--ok:#1e8e3e;--warn:#9a5b00;--wrap:1400px;--gutter:20px}
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.6 Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--text);background:#fff;-webkit-font-smoothing:antialiased}
 a{color:inherit}

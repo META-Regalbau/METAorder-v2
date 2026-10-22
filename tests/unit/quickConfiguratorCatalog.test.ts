@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickConfigCatalog, postWidthFromProperty, quickConfigSummary } from "../../server/shopContent/quickConfiguratorCatalog";
+import { buildQuickConfigCatalog, postWidthFromProperty, quickConfigImageItems, quickConfigSummary } from "../../server/shopContent/quickConfiguratorCatalog";
 
 describe("Artikeltabelle Schnellkonfigurator", () => {
   it("nimmt die Regalarten mit allen Merkmalen auf", () => {
@@ -76,5 +76,17 @@ describe("Artikeltabelle Schnellkonfigurator", () => {
     const { catalog, skipped } = buildQuickConfigCatalog([{ id: "x", name }, { id: "y", name }]);
     expect(catalog.items).toHaveLength(1);
     expect(skipped[0].reason).toMatch(/^doppelt/);
+  });
+
+  it("wählt fürs Bild je Regalart das einseitige, verzinkte Grundregal mit den Beispielmaßen", () => {
+    const n = (role: string, dims: string, extra = "verzinkt") => `META CLIP | Fachbodenregal | ${role} | ${dims} mm | Fachlast 150 kg | 5 Ebenen | ${extra}`;
+    const { catalog } = buildQuickConfigCatalog([
+      { id: "anbau", name: n("Anbauregal", "2000 x 1000 x 500") },
+      { id: "ral", name: n("Grundregal", "2000 x 1000 x 500", "RAL 7035") },
+      { id: "weit", name: n("Grundregal", "2500 x 1300 x 600") },
+      { id: "nah", name: n("Grundregal", "2000 x 1000 x 600") },
+      { id: "doppel", name: "META CLIP | Fachbodenregal | Doppel-Grundregal | 2000 x 1000 x 500 mm | Fachlast 150 kg | 5 Ebenen | verzinkt" },
+    ]);
+    expect(quickConfigImageItems(catalog)).toEqual({ fachboden: { id: "nah", system: "META CLIP", h: 2000, b: 1000, t: 600 } });
   });
 });

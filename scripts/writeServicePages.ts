@@ -81,8 +81,9 @@ function buildCmsPage(page: ServicePage) {
               sectionPosition: "main",
               marginTop: "0",
               marginBottom: "40px",
-              marginLeft: "20px",
-              marginRight: "20px",
+              // seitlich ohne Rand: bündig mit dem Theme-Container wie die übrigen Abschnitte
+              marginLeft: "0",
+              marginRight: "0",
               visibility: ALL_DEVICES,
               slots: [
                 {

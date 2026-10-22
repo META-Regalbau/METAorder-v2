@@ -409,6 +409,8 @@ const SHOP_CSS = `
 /* Theme: Bootstrap-Zeile um das HTML-Element hat negative Raender – bei voller Breite 20 px Ueberlauf */
 .cms-block-container-row:has(> .col-12 > .cms-element-html > .mbp){margin-left:0;margin-right:0}
 .cms-block-container-row:has(> .col-12 > .cms-element-html > .mbp) > .col-12{padding-left:0;padding-right:0}
+/* In „boxed“-Abschnitten gibt der Theme-Container den Seitenrand schon vor */
+.cms-section-default.boxed .mbp .wrap{padding-left:0;padding-right:0}
 `;
 
 export function industryPageCss(scope?: string): string {
@@ -418,12 +420,12 @@ export function industryPageCss(scope?: string): string {
 
 /** Stylesheet der Entwuerfe (Look des Live-Shops: Inter, Rot #ff0002, eckige Kanten, Hellgrau-Abschnitte). */
 const INDUSTRY_PAGE_CSS = `
-/* Tokens: aus dem Live-Shop übernommen (Inter, Rot #ff0002, eckige Kanten, Hellgrau-Abschnitte) */
+/* Tokens: aus dem Live-Shop übernommen (Inter, Rot #ff0002, eckige Kanten, Hellgrau-Abschnitte); --wrap = Theme-Container (1400 px) */
 :root{
   --red:#ff0002; --red-d:#d10002; --ink:#131313; --text:#2b2b2b; --muted:#6b6b6a; --grey:#929291;
   --line:#e3e3e3; --bg-grey:#f4f4f4; --bg-stage:#efefef; --ok:#1e8e3e; --white:#fff;
   --note:#fff4c2; --note-b:#e6b800; --note-ink:#3d3300;
-  --wrap:1280px; --gutter:20px;
+  --wrap:1400px; --gutter:20px;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
