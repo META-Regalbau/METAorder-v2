@@ -7451,7 +7451,11 @@
       "categoriesHint": "Kategorien in Outlook: {{categories}}",
       "saved": "Einstellungen gespeichert",
       "savedPageFailed": "Gespeichert, aber die Seite konnte nicht aktualisiert werden",
-      "saveFailed": "Einstellungen konnten nicht gespeichert werden"
+      "saveFailed": "Einstellungen konnten nicht gespeichert werden",
+      "fromIntake": "Auch aus dem E-Mail-Eingang übernehmen",
+      "fromIntakeHint": "Ohne Outlook-Regel: Mails der Absender unten, die nach Changelog klingen, prüft die KI im Hintergrund. Ohne Changelog entsteht kein Beitrag; die Einordnung im E-Mail-Eingang bleibt.",
+      "intakeSenders": "Absender (eine Adresse je Zeile)",
+      "intakeSendersHint": "Nur Mails, die direkt von diesen Adressen kommen (z. B. Carolin und Sebastian, wenn sie Changelogs weiterleiten)."
     }
   },
   "systemLog": {

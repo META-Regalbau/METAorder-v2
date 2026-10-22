@@ -26,6 +26,12 @@ export const portalNewsSettingsSchema = z.object({
   /** Überschrift und Einleitung oben auf der Seite */
   pageTitle: z.string().trim().min(1).max(120),
   pageIntro: z.string().trim().max(600),
+  /**
+   * Changelog-Mails auch aus dem normalen E-Mail-Eingang übernehmen (ohne Outlook-Regel): Mails dieser
+   * Absender, die nach Changelog klingen, gehen im Hintergrund an die KI; ohne Changelog kein Beitrag.
+   */
+  fromIntake: z.boolean(),
+  intakeSenders: z.array(z.string().trim().toLowerCase().email()).max(20),
 });
 
 export type PortalNewsSettings = z.infer<typeof portalNewsSettingsSchema>;
@@ -40,6 +46,9 @@ export const DEFAULT_PORTAL_NEWS_SETTINGS: PortalNewsSettings = {
   autoPublish: true,
   pageTitle: "Neuigkeiten",
   pageIntro: "Was sich in Shop, Portal und unseren Systemen geändert hat – die neuesten Änderungen stehen oben.",
+  fromIntake: true,
+  // Carolin und Sebastian leiten die Changelogs von EURIS (Regalplaner) und WIRDUZEN (Shop) weiter
+  intakeSenders: ["cwanzkeboomers@meta-online.com", "sfehd@meta-online.com"],
 };
 
 /** Gespeicherten Wert mit Standardwerten auffüllen; Unbrauchbares fällt auf den Standard zurück. */
@@ -60,6 +69,23 @@ export const PORTAL_NEWS_CATEGORIES = {
   draft: "METAorder: Neuigkeit prüfen",
   failed: "METAorder: Fehler",
 } as const;
+
+/** Termin-Antworten und Einladungen sind nie ein Changelog */
+const CALENDAR_SUBJECT_RE = /^\s*(abgesagt|angenommen|abgelehnt|mit vorbehalt angenommen|neue vorgeschlagene zeit|einladung|aktualisiert|canceled|accepted|declined|tentative|invitation|updated invitation)\s*:/i;
+/** Wörter, an denen ein Changelog zu erkennen ist (Vorprüfung vor der KI) */
+const CHANGELOG_HINT_RE =
+  /changelog|release|version\s*v?\d|neue version|änderungen|aenderungen|behoben|fehlerbehebung|bugfix|live gegangen|eingespielt|ausgerollt|neue funktion|tickets?\b/i;
+
+/** Mail aus dem E-Mail-Eingang an die Portal-Neuigkeiten geben? (rein, testbar; die KI entscheidet danach) */
+export function isPortalNewsIntakeCandidate(
+  mail: { fromEmail: string | null; subject: string; body: string },
+  settings: Pick<PortalNewsSettings, "enabled" | "fromIntake" | "intakeSenders">,
+): boolean {
+  if (!settings.enabled || !settings.fromIntake || !mail.fromEmail) return false;
+  if (!settings.intakeSenders.includes(mail.fromEmail.trim().toLowerCase())) return false;
+  if (CALENDAR_SUBJECT_RE.test(mail.subject)) return false;
+  return CHANGELOG_HINT_RE.test(`${mail.subject}\n${mail.body.slice(0, 20_000)}`);
+}
 
 export function portalNewsMessageFilter(receivedAfter: string): string {
   const notCategorized = Object.values(PORTAL_NEWS_CATEGORIES)
@@ -138,7 +164,8 @@ export type PortalNewsPageInfo = PortalNewsPageState & {
 };
 
 export type PortalNewsIntakeResponse = {
-  outcome: "published" | "draft" | "duplicate" | "failed";
+  /** not_changelog: nur aus dem E-Mail-Eingang – KI sah keinen Changelog, kein Beitrag */
+  outcome: "published" | "draft" | "duplicate" | "failed" | "not_changelog";
   postId: string | null;
   categories: string[];
 };
