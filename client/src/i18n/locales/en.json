@@ -1782,7 +1782,7 @@
         "mailboxMode": "Type",
         "mailboxModeOrder": "Order mailbox",
         "mailboxModePersonal": "Personal mailbox",
-        "mailboxModeHint": "Order mailbox: handled mails move to the target folder, “other” mails are forwarded. Personal mailbox: nothing is moved or forwarded, METAorder only sets categories.",
+        "mailboxModeHint": "Order mailbox: processed mails move to the target folder, “other” mails are forwarded. Personal mailbox: nothing is moved or forwarded, METAorder only sets categories. Routing mailbox (e.g. digital-service@): no draft; product and quote inquiries as well as orders go to the address under “Inquiries from routing mailboxes”, everything else stays in the inbox.",
         "mailboxEnabled": "active",
         "mailboxRemove": "Remove mailbox",
         "mailboxAdd": "Add mailbox",
@@ -1799,7 +1799,16 @@
         "filterSubjectKeywords": "Ignore if the subject contains",
         "filterSubjectKeywordsHint": "One keyword per line, case-insensitive.",
         "filterInternalDomains": "Additional internal domains",
-        "filterInternalDomainsHint": "The domains of the mailboxes count as internal automatically."
+        "filterInternalDomainsHint": "The domains of the mailboxes count as internal automatically.",
+        "mailboxModeRoute": "Routing mailbox (forward inquiries)",
+        "routeSection": "Inquiries from routing mailboxes",
+        "routeSectionHint": "For mailboxes of the type “routing mailbox”, the AI checks every mail: is a customer asking about META products, requesting a quote or placing an order? If so, Outlook forwards the original mail to the address below, with the classification and the customer’s address on top. There, the email intake creates the draft as usual. Offers from service providers, invoices, tool notifications and questions about running orders stay in the routing mailbox. The mail always stays in the inbox and gets the category “METAorder: weitergeleitet” or “METAorder: geprüft”.",
+        "inquiryForwardTo": "Forward inquiries to",
+        "inquiryForwardToPlaceholder": "shop@meta-online.com",
+        "inquiryForwardToHint": "Usually the shop mailbox. An order mailbox from above is allowed (the draft is created there), a routing mailbox is not.",
+        "inquiryForwardToEmpty": "Without an address, inquiries are only marked, not forwarded.",
+        "inquiryMinConfidence": "Forward from confidence (%)",
+        "inquiryMinConfidenceHint": "Deliberately lower than for “other”: one mail too many in the shop mailbox does less harm than a missed inquiry."
       },
       "mondu": {
         "title": "Mondu",
@@ -5838,7 +5847,9 @@
       "portal_news_no_text": "No email text available.",
       "portal_news_insert_failed": "Post could not be created.",
       "portal_news_page_failed": "The page could not be written to the shop.",
-      "portal_news_mailbox_invalid": "Invalid mailbox address."
+      "portal_news_mailbox_invalid": "Invalid mailbox address.",
+      "email_intake_inquiry_forward_invalid": "The address for inquiries from routing mailboxes is not a valid email address.",
+      "email_intake_inquiry_forward_is_route": "The address for inquiries is itself a routing mailbox. Please enter the shop mailbox or another order mailbox."
     },
     "client": {
       "notModified": "API response unchanged (304) – please reload the page.",
@@ -6833,7 +6844,9 @@
       "invalid_customer_mail_run": "Mailing incomplete (mail type, template, sender and subject required)",
       "failed_to_create_customer_mail_run": "Failed to create mailing",
       "failed_to_load_customer_mail_effect": "Failed to load effect",
-      "beitrag_nicht_gefunden": "Post not found"
+      "beitrag_nicht_gefunden": "Post not found",
+      "ungultige_adresse_fur_anfragen": "Invalid address for inquiries",
+      "die_adresse_fur_anfragen_ist_selbst_ein_verteilpostfach": "The address for inquiries is itself a routing mailbox"
     }
   },
   "roomPlanner": {

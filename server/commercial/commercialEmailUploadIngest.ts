@@ -34,7 +34,13 @@ import {
 } from "./commercialAgentOrchestrator";
 import { triageInboundEmail, type EmailTriageResult, type TriageLlm } from "./emailIntakeTriage";
 import { evaluateEmailIntakeFilter } from "./emailIntakeFilter";
-import { isMetaorderForwardedMail, type EmailIntakeFilterRule, type EmailIntakeFilterSettings } from "@shared/emailIntake";
+import { routeInboundEmail, type EmailRouteResult } from "./emailIntakeRouting";
+import {
+  isMetaorderForwardedMail,
+  isMetaorderRoutedMail,
+  type EmailIntakeFilterRule,
+  type EmailIntakeFilterSettings,
+} from "@shared/emailIntake";
 import { attachSupportingDocumentsToDrafts, partitionCommercialParts } from "./commercialDraftAttachments";
 import { unwrapInternalForward } from "../email/emailForwardUnwrap";
 import { logger } from "../lib/logger";
@@ -144,6 +150,11 @@ export type IngestCommercialEmailUploadParams = {
    * verarbeiten (Schleifenschutz). Gilt auch für ältere Workflows ohne Postfach-Feld, also ohne Filter.
    */
   skipMetaorderForwards?: boolean;
+  /**
+   * Verteilpostfach (Modus „route“): nur einordnen (Anfrage ja/nein), keinen Entwurf anlegen. Die Weiterleitung
+   * macht n8n; der Entwurf entsteht erst im Zielpostfach.
+   */
+  route?: { llm?: TriageLlm } | null;
 };
 
 export type IngestMailEnvelope = {
@@ -177,6 +188,8 @@ export type IngestCommercialEmailUploadResult = {
   /** Vom Filter aussortiert (vor jeder Auswertung); null = nicht aussortiert */
   ignoredByFilter: { rule: EmailIntakeFilterRule; reason: string } | null;
   envelope: IngestMailEnvelope;
+  /** Verteilpostfach: Einordnung; null = kein Verteilpostfach (oder vorher aussortiert) */
+  route?: EmailRouteResult | null;
 };
 
 /**
@@ -205,6 +218,7 @@ export async function ingestCommercialEmailUpload(
     triage: triageOptions = null,
     filter: filterOptions = null,
     skipMetaorderForwards = false,
+    route: routeOptions = null,
   } = params;
 
   const parsed = await parseEmailBufferAutodetect(fileBuffer);
@@ -235,8 +249,12 @@ export async function ingestCommercialEmailUpload(
     internalForward: unwrapped.strippedForwardLevels > 0,
   };
 
-  // Schleifenschutz vor allem anderen: eigene Weiterleitung von METAorder → nur Kategorie „ignoriert“
-  if (skipMetaorderForwards && isMetaorderForwardedMail(parsed.body, parsed.html)) {
+  // Schleifenschutz vor allem anderen: eigene Weiterleitung von METAorder → nur Kategorie „ignoriert“.
+  // Im Verteilpostfach auch weitergeleitete Anfragen (sonst gingen sie zwischen zwei Verteilpostfächern hin und her).
+  const ownForward =
+    (skipMetaorderForwards && isMetaorderForwardedMail(parsed.body, parsed.html)) ||
+    (routeOptions !== null && isMetaorderRoutedMail(parsed.body, parsed.html));
+  if (ownForward) {
     const reason = "Weiterleitung von METAorder (wird nicht erneut verarbeitet)";
     moduleLog.info(
       { event: "email_intake.filter", messageId, action: "ignore", rule: "metaorder_forward", reason },
@@ -292,6 +310,42 @@ export async function ingestCommercialEmailUpload(
         envelope,
       };
     }
+  }
+
+  // Verteilpostfach: nur einordnen. Anhänge werden nicht gelesen (kein OCR), ihre Namen reichen als Hinweis.
+  if (routeOptions) {
+    const route = await routeInboundEmail(
+      storage,
+      {
+        subject,
+        body: emailBody,
+        from: envelope.customerFrom || envelope.headerFrom,
+        autoSubmitted: parsed.autoSubmitted ?? null,
+        attachmentNames: (parsed.attachments ?? [])
+          .filter((a) => !isMailDecorationImage(a, parsed.html ?? null))
+          .map((a) => a.filename)
+          .filter((name): name is string => Boolean(name)),
+      },
+      routeOptions.llm,
+    );
+    moduleLog.info(
+      { event: "email_intake.route", messageId, kind: route.kind, confidence: route.confidence, source: route.source },
+      `[EmailIngest] Verteilpostfach: ${route.kind} (${Math.round(route.confidence * 100)} %) — ${route.reason}`,
+    );
+    return {
+      results: [],
+      attachmentsProcessed: 0,
+      usedEmailOnlyFallback: false,
+      messageId,
+      subject,
+      draftPartFileNames: [],
+      outcomes: [],
+      triage: null,
+      skippedAsOther: false,
+      ignoredByFilter: null,
+      envelope,
+      route,
+    };
   }
 
   const { commercialParts: allCommercialParts, signatureImageBuffers } = splitCommercialEmailParts(parsed);

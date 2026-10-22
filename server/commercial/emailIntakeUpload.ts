@@ -132,10 +132,15 @@ export async function finalizeEmailIntake(params: {
   appBaseUrl?: string | null;
   /** Art des Postfachs, aus dem die Mail kommt */
   mailboxMode?: EmailIntakeMailboxMode;
+  /** Adresse des Postfachs (intake_mailbox) */
+  mailboxAddress?: string | null;
 }): Promise<EmailIntakeResponse> {
   const { storage, tenantId, settings, ingest } = params;
   const plan = planEmailIntake({
     mailboxMode: params.mailboxMode,
+    mailboxAddress: params.mailboxAddress ?? null,
+    route: ingest.route ?? null,
+    customerEmail: ingest.envelope.customerEmail,
     ignoredByFilter: ingest.ignoredByFilter,
     skippedAsOther: ingest.skippedAsOther,
     triage: ingest.triage,
@@ -192,6 +197,7 @@ export async function finalizeEmailIntake(params: {
       moved: plan.move,
       mailboxMode: params.mailboxMode ?? "order",
       filterRule: plan.filter?.rule ?? null,
+      routeKind: plan.route?.kind ?? null,
     },
     `[EmailIntake] ${plan.outcome}: ${ingest.subject}`,
   );
@@ -205,6 +211,7 @@ export async function finalizeEmailIntake(params: {
     other: plan.other,
     teams: buildIntakeTeamsBlock(settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),
     filter: plan.filter,
+    route: plan.route ?? null,
   };
 }
 
@@ -246,8 +253,8 @@ export async function failEmailIntake(params: {
     categories: [EMAIL_INTAKE_CATEGORIES.failed, ...(tickets.length ? [EMAIL_INTAKE_CATEGORIES.ticket] : [])],
     forward: null,
     // Auch ohne Ticket verschieben: sonst liefe dieselbe kaputte Mail alle zwei Minuten erneut durch die KI
-    // persönliches Postfach: nur Kategorie „Fehler“, Mail bleibt im Posteingang
-    move: params.mailboxMode !== "personal",
+    // persönliches und Verteilpostfach: nur Kategorie „Fehler“, Mail bleibt im Posteingang
+    move: params.mailboxMode !== "personal" && params.mailboxMode !== "route",
     tickets,
     other: null,
     teams: buildIntakeTeamsBlock(params.settings.teamsWebhookUrl, tickets, params.appBaseUrl ?? null),

@@ -200,6 +200,7 @@ export default function EmailIntakeSection() {
                       <SelectContent>
                         <SelectItem value="order">{t("settings.integration.emailIntake.mailboxModeOrder")}</SelectItem>
                         <SelectItem value="personal">{t("settings.integration.emailIntake.mailboxModePersonal")}</SelectItem>
+                        <SelectItem value="route">{t("settings.integration.emailIntake.mailboxModeRoute")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -377,6 +378,45 @@ export default function EmailIntakeSection() {
               <p className="text-xs text-muted-foreground mt-1">{t("settings.integration.emailIntake.otherMinConfidenceHint")}</p>
             </div>
           </fieldset>
+
+          {(form.mailboxes.some((m) => m.mode === "route") || form.inquiryForwardTo.trim()) && (
+            <fieldset className="grid gap-3 md:grid-cols-2" data-testid="fieldset-email-intake-route">
+              <legend className="text-xs font-medium mb-2">{t("settings.integration.emailIntake.routeSection")}</legend>
+              <p className="md:col-span-2 text-xs text-muted-foreground">{t("settings.integration.emailIntake.routeSectionHint")}</p>
+              <div>
+                <Label className="text-xs" htmlFor="email-intake-inquiry-forward">{t("settings.integration.emailIntake.inquiryForwardTo")}</Label>
+                <Input
+                  id="email-intake-inquiry-forward"
+                  className="mt-1"
+                  type="email"
+                  placeholder={t("settings.integration.emailIntake.inquiryForwardToPlaceholder")}
+                  value={form.inquiryForwardTo}
+                  onChange={(e) => set("inquiryForwardTo", e.target.value)}
+                  data-testid="input-email-intake-inquiry-forward"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {form.inquiryForwardTo.trim()
+                    ? t("settings.integration.emailIntake.inquiryForwardToHint")
+                    : t("settings.integration.emailIntake.inquiryForwardToEmpty")}
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs" htmlFor="email-intake-inquiry-confidence">{t("settings.integration.emailIntake.inquiryMinConfidence")}</Label>
+                <Input
+                  id="email-intake-inquiry-confidence"
+                  className="mt-1"
+                  type="number"
+                  min={50}
+                  max={100}
+                  step={5}
+                  value={Math.round(form.inquiryMinConfidence * 100)}
+                  onChange={(e) => set("inquiryMinConfidence", Math.max(50, Math.min(100, Number(e.target.value) || 60)) / 100)}
+                  data-testid="input-email-intake-inquiry-confidence"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("settings.integration.emailIntake.inquiryMinConfidenceHint")}</p>
+              </div>
+            </fieldset>
+          )}
 
           <fieldset className="space-y-3">
             <legend className="text-xs font-medium mb-2">{t("settings.integration.emailIntake.ticketSection")}</legend>

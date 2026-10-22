@@ -6,6 +6,7 @@ import {
   EMAIL_INTAKE_CATEGORIES,
   EMAIL_INTAKE_OTHER_TYPE_LABELS,
   isForwardTargetIntakeMailbox,
+  isInquiryTargetRouteMailbox,
   isValidIntakeEmail,
   METAORDER_FORWARD_MARKER,
   type EmailIntakeOtherType,
@@ -18,6 +19,7 @@ import {
 } from "@shared/emailIntake";
 import type { CommercialAgentProcessOutcome } from "./commercialAgentOrchestrator";
 import type { EmailTriageResult } from "./emailIntakeTriage";
+import { buildRouteComment, isForwardedRouteKind, type EmailRouteResult } from "./emailIntakeRouting";
 
 /** Werden nicht weitergeleitet, nur markiert und verschoben */
 export const NOT_FORWARDED: readonly EmailIntakeOtherType[] = ["auto_reply", "spam"];
@@ -37,6 +39,7 @@ export type EmailIntakePlan = {
   forward: EmailIntakeResponse["forward"];
   other: EmailIntakeResponse["other"];
   problems: PlannedProblem[];
+  route?: EmailIntakeResponse["route"];
 };
 
 const SKIP_REASON_TEXT: Record<string, string> = {
@@ -58,6 +61,12 @@ export function buildForwardComment(triage: Extract<EmailTriageResult, { kind: "
 export function planEmailIntake(input: {
   /** Art des Postfachs; persönlich = nur Kategorien, nichts verschieben oder weiterleiten */
   mailboxMode?: EmailIntakeMailboxMode;
+  /** Adresse des Postfachs (für den Hinweis bei Weiterleitungen aus dem Verteilpostfach) */
+  mailboxAddress?: string | null;
+  /** Verteilpostfach: Einordnung der KI */
+  route?: EmailRouteResult | null;
+  /** Absender der Kundenmail (Antwort-Hinweis bei Weiterleitungen aus dem Verteilpostfach) */
+  customerEmail?: string | null;
   /** Vom Filter aussortiert */
   ignoredByFilter?: { rule: EmailIntakeFilterRule; reason: string } | null;
   skippedAsOther: boolean;
@@ -65,11 +74,13 @@ export function planEmailIntake(input: {
   outcomes: Array<{ filename: string; outcome: CommercialAgentProcessOutcome }>;
   /** Bei Wiederholung: Art des vorhandenen Entwurfs */
   existingDraftKind: "order" | "offer" | null;
-  settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "ticketOnFailure" | "ticketOnShopwareError" | "ticketOnMarginRed"> & {
+  settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "ticketOnFailure" | "ticketOnShopwareError" | "ticketOnMarginRed"> &
+    Partial<Pick<EmailIntakeSettings, "inquiryForwardTo" | "inquiryMinConfidence">> & {
     /** Angebundene Postfächer: dorthin wird nie weitergeleitet (Schleife) */
     mailboxes?: EmailIntakeSettings["mailboxes"];
   };
 }): EmailIntakePlan {
+  if (input.mailboxMode === "route") return planRouteMailbox(input);
   const plan = planByOutcome(input);
   const personal = input.mailboxMode === "personal";
   // Im persönlichen Postfach ist die Kategorie die einzige Markierung „erledigt“: ohne sie holt
@@ -80,6 +91,44 @@ export function planEmailIntake(input: {
     move: plan.outcome !== "ignored" && !personal,
     forward: personal ? null : plan.forward,
   };
+}
+
+/**
+ * Verteilpostfach: nie verschieben (die Kollegen dort arbeiten im Posteingang), nie ein Entwurf. Anfragen gehen
+ * an `inquiryForwardTo`, alles andere bekommt nur „geprüft“.
+ */
+function planRouteMailbox(input: Parameters<typeof planEmailIntake>[0]): EmailIntakePlan {
+  const base = { move: false, other: null, problems: [], filter: null, forward: null };
+  if (input.ignoredByFilter) {
+    return {
+      ...base,
+      outcome: "ignored",
+      categories: [EMAIL_INTAKE_CATEGORIES.ignored],
+      filter: { rule: input.ignoredByFilter.rule, reason: input.ignoredByFilter.reason },
+    };
+  }
+  const route = input.route ?? null;
+  const routeInfo = route ? { kind: route.kind, confidence: route.confidence, reason: route.reason } : null;
+  const to = (input.settings.inquiryForwardTo ?? "").trim();
+  const minConfidence = input.settings.inquiryMinConfidence ?? 0.6;
+  const forwardable =
+    route !== null &&
+    isForwardedRouteKind(route.kind) &&
+    route.confidence >= minConfidence &&
+    Boolean(to) &&
+    isValidIntakeEmail(to) &&
+    // Nie an ein anderes Verteilpostfach (Schleife); ein Bestellpostfach als Ziel ist gewollt
+    !isInquiryTargetRouteMailbox({ inquiryForwardTo: to, mailboxes: input.settings.mailboxes ?? [] });
+  if (forwardable && route) {
+    return {
+      ...base,
+      outcome: "routed",
+      categories: [EMAIL_INTAKE_CATEGORIES.routed],
+      forward: { to, comment: buildRouteComment(route, input.mailboxAddress ?? null, input.customerEmail ?? null) },
+      route: routeInfo,
+    };
+  }
+  return { ...base, outcome: "kept", categories: [EMAIL_INTAKE_CATEGORIES.checked], route: routeInfo };
 }
 
 function planByOutcome(input: Parameters<typeof planEmailIntake>[0]): Omit<EmailIntakePlan, "move"> {

@@ -13,11 +13,15 @@ export const EMAIL_INTAKE_SETTING_KEY = "email_intake_settings";
  * Ein abgerufenes Postfach. „order“ = Bestellpostfach: erledigte Mails werden verschoben,
  * „Sonstiges“ weitergeleitet. „personal“ = persönliches Postfach: nichts wird verschoben oder
  * weitergeleitet, METAorder setzt nur Kategorien (die Mail bleibt, wo sie ist).
+ * „route“ = Verteilpostfach (z. B. digital-service@): kein Entwurf; Produkt- und Angebotsanfragen
+ * leitet n8n an `inquiryForwardTo` weiter (dort entsteht der Entwurf), alles andere bleibt liegen.
  */
+export const EMAIL_INTAKE_MAILBOX_MODES = ["order", "personal", "route"] as const;
+
 export const emailIntakeMailboxSchema = z.object({
   /** Freigegebenes Postfach (z. B. bestellung@…); leer = Postfach des n8n-Outlook-Zugangs */
   address: z.string().trim().max(254),
-  mode: z.enum(["order", "personal"]),
+  mode: z.enum(EMAIL_INTAKE_MAILBOX_MODES),
   enabled: z.boolean(),
 });
 export type EmailIntakeMailbox = z.infer<typeof emailIntakeMailboxSchema>;
@@ -94,6 +98,13 @@ export const emailIntakeSettingsSchema = z.object({
   forwardOtherTo: z.string().trim().max(254),
   /** Ab dieser Sicherheit gilt eine Mail als „Sonstiges“ (darunter wird ein Entwurf angelegt) */
   otherMinConfidence: z.number().min(0.5).max(1),
+  /**
+   * Verteilpostfächer (Modus „route“): Produkt-, Angebotsanfragen und Bestellungen gehen an diese Adresse,
+   * in der Regel das Shop-Postfach. Leer = nichts weiterleiten, nur markieren.
+   */
+  inquiryForwardTo: z.string().trim().max(254),
+  /** Ab dieser Sicherheit der KI wird eine Anfrage aus einem Verteilpostfach weitergeleitet */
+  inquiryMinConfidence: z.number().min(0.5).max(1),
   /** Letzte Stufe der Zuweisung: bekommt das Ticket, wenn sonst niemand zuständig ist */
   defaultAssigneeUserId: z.string().trim().max(64).nullable(),
   ticketOnFailure: z.boolean(),
@@ -168,6 +179,9 @@ export const DEFAULT_EMAIL_INTAKE_SETTINGS: EmailIntakeSettings = {
   processSince: "",
   forwardOtherTo: "",
   otherMinConfidence: 0.7,
+  inquiryForwardTo: "",
+  // Niedriger als bei „Sonstiges“: eine Mail zu viel im Shop-Postfach ist harmloser als eine verlorene Anfrage
+  inquiryMinConfidence: 0.6,
   defaultAssigneeUserId: null,
   ticketOnFailure: true,
   ticketOnShopwareError: true,
@@ -243,6 +257,10 @@ export const EMAIL_INTAKE_CATEGORIES = {
   failed: "METAorder: Fehler",
   /** Vom Filter aussortiert (Newsletter, intern, Sperrliste): bleibt im Posteingang */
   ignored: "METAorder: ignoriert",
+  /** Verteilpostfach: als Anfrage erkannt und weitergeleitet (bleibt im Posteingang) */
+  routed: "METAorder: weitergeleitet",
+  /** Verteilpostfach: geprüft, keine Anfrage (bleibt im Posteingang) */
+  checked: "METAorder: geprüft",
 } as const;
 
 /** Art der Mail, wenn sie weder Bestellung noch Anfrage ist (für Hinweis und Ticket) */
@@ -284,7 +302,11 @@ export type EmailIntakeOutcome =
   /** Konnte nicht verarbeitet werden — Ticket angelegt */
   | "failed"
   /** Vom Filter aussortiert (ohne KI, ohne Entwurf, bleibt im Posteingang) */
-  | "ignored";
+  | "ignored"
+  /** Verteilpostfach: Anfrage erkannt, an `inquiryForwardTo` weitergeleitet */
+  | "routed"
+  /** Verteilpostfach: keine Anfrage, bleibt liegen */
+  | "kept";
 
 export type EmailIntakeTicketRef = {
   ticketNumber: string;
@@ -327,6 +349,19 @@ export type EmailIntakeResponse = {
   teams?: EmailIntakeTeamsBlock | null;
   /** Filter-Regel, die die Mail aussortiert hat */
   filter?: { rule: EmailIntakeFilterRule; reason: string } | null;
+  /** Verteilpostfach: Einordnung der KI */
+  route?: { kind: EmailIntakeRouteKind; confidence: number; reason: string } | null;
+};
+
+/** Einordnung im Verteilpostfach; die ersten drei werden weitergeleitet */
+export const EMAIL_INTAKE_ROUTE_KINDS = ["order", "quote_request", "product_question", "other"] as const;
+export type EmailIntakeRouteKind = (typeof EMAIL_INTAKE_ROUTE_KINDS)[number];
+
+export const EMAIL_INTAKE_ROUTE_KIND_LABELS: Record<EmailIntakeRouteKind, string> = {
+  order: "Bestellung",
+  quote_request: "Angebotsanfrage",
+  product_question: "Produktanfrage",
+  other: "keine Anfrage",
 };
 
 export type EmailIntakeFilterRule = "allow_list" | "block_list" | "subject_keyword" | "internal" | "bulk" | "metaorder_forward";
@@ -338,22 +373,47 @@ export type EmailIntakeFilterRule = "allow_list" | "block_list" | "subject_keywo
  */
 export const METAORDER_FORWARD_MARKER = "METAorder hat diese E-Mail weder als Bestellung noch als Angebotsanfrage erkannt";
 
-/** Enthält der Mailtext (Text oder HTML) den Weiterleitungshinweis von METAorder? */
-export function isMetaorderForwardedMail(...texts: Array<string | null | undefined>): boolean {
+/**
+ * Anfang des Hinweises über einer Anfrage, die METAorder aus einem Verteilpostfach weitergeleitet hat. Anders als
+ * bei „Sonstiges“ wird so eine Mail im Zielpostfach (Shop) ganz normal verarbeitet; nur ein anderes
+ * Verteilpostfach leitet sie nicht noch einmal weiter.
+ */
+export const METAORDER_ROUTE_MARKER = "METAorder hat diese E-Mail als Anfrage an den Shop erkannt";
+
+function mailContains(marker: string, texts: Array<string | null | undefined>): boolean {
   return texts.some((text) => {
     if (!text) return false;
     const plain = text
       .replace(/<[^>]*>/g, " ")
       .replace(/&nbsp;|&#160;|\u00a0/gi, " ")
       .replace(/\s+/g, " ");
-    return plain.includes(METAORDER_FORWARD_MARKER);
+    return plain.includes(marker);
   });
+}
+
+/** Enthält der Mailtext (Text oder HTML) den Weiterleitungshinweis von METAorder? */
+export function isMetaorderForwardedMail(...texts: Array<string | null | undefined>): boolean {
+  return mailContains(METAORDER_FORWARD_MARKER, texts);
+}
+
+/** Hat METAorder die Mail schon aus einem Verteilpostfach weitergeleitet? */
+export function isMetaorderRoutedMail(...texts: Array<string | null | undefined>): boolean {
+  return mailContains(METAORDER_ROUTE_MARKER, texts);
 }
 
 /** Weiterleitungsziel ist selbst ein angebundenes Postfach (Schleife)? */
 export function isForwardTargetIntakeMailbox(settings: Pick<EmailIntakeSettings, "forwardOtherTo" | "mailboxes">): boolean {
   const target = settings.forwardOtherTo.trim().toLowerCase();
   return Boolean(target) && settings.mailboxes.some((m) => m.address.trim().toLowerCase() === target);
+}
+
+/**
+ * Ziel der Anfragen ist selbst ein Verteilpostfach (Schleife)? Ein Bestellpostfach als Ziel ist gewollt: dort
+ * entsteht der Entwurf.
+ */
+export function isInquiryTargetRouteMailbox(settings: Pick<EmailIntakeSettings, "inquiryForwardTo" | "mailboxes">): boolean {
+  const target = settings.inquiryForwardTo.trim().toLowerCase();
+  return Boolean(target) && settings.mailboxes.some((m) => m.mode === "route" && m.address.trim().toLowerCase() === target);
 }
 
 /** Ein Postfach im Lauf: alles, was n8n für Abruf und Ablage braucht */
@@ -363,7 +423,7 @@ export type EmailIntakeWorkflowMailbox = {
   /** Adresse wie in den Einstellungen; null = Postfach des n8n-Zugangs (an METAorder zurückgeben) */
   mailbox: string | null;
   mode: EmailIntakeMailboxMode;
-  /** Unterordner für erledigte Mails (nur Bestellpostfach) */
+  /** Unterordner für erledigte Mails (nur Bestellpostfach; persönliches und Verteilpostfach verschieben nicht) */
   processedFolderName: string;
   maxPerRun: number;
   /** Untergrenze für receivedDateTime (ISO, UTC) */
