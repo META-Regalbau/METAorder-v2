@@ -4,6 +4,9 @@
  * Das Formular selbst kommt aus shopware/storefront-snippets/quick-configurator.js
  * (scripts/writeQuickConfigurator.ts) und liest die Tabelle aus dem Attribut data-catalog der Seite.
  *
+ * Die Tabelle enthält auch je Regalart das Produktbild eines Beispiel-Grundregals (quickConfigImageItems),
+ * das der Konfigurator neben dem Formular zeigt.
+ *
  * Die Tabelle ist ein Stand: Kommen Regale dazu oder fallen weg, das Skript erneut ausführen
  * (ersetzt Datei und Seite, das Theme muss dafür nicht neu erstellt werden), danach auch --home.
  *
@@ -17,7 +20,7 @@
  * Datei bzw. den Startseiten-Abschnitt wieder (alles eigene Entitäten). Schreibt nur in Shops mit „test.“ in der URL, außer mit --live.
  *
  * Aufruf (im App-Container):
- *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> [--apply] [--live]
+ *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> [--apply] [--live] [--image-fallback https://shop.meta-online.com]
  *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> --home [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeQuickConfiguratorPage.ts <tenantId> --revert <protokoll.json> [--live]
  */
@@ -25,7 +28,14 @@ import { readFileSync, writeFileSync } from "fs";
 import { storage } from "../server/storage";
 import { ShopwareClient } from "../server/shopware/shopware";
 import { CONTACT } from "../server/products/industryPages";
-import { buildQuickConfigCatalog, loadQuickConfigProducts, quickConfigSummary, type QuickConfigCatalog } from "../server/shopContent/quickConfiguratorCatalog";
+import {
+  buildQuickConfigCatalog,
+  loadQuickConfigProducts,
+  quickConfigImageItems,
+  quickConfigSummary,
+  type QuickConfigCatalog,
+  type QuickConfigImage,
+} from "../server/shopContent/quickConfiguratorCatalog";
 import { quickConfigId } from "../server/shopContent/shopEntityIds";
 import { DE_LANG, findDeChannel, shopApi } from "../server/shopContent/shopProducts";
 
@@ -72,7 +82,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 function pageHtml(catalogUrl: string, count: number): string {
   return `<style>
-.meta-qc-page{max-width:1100px;margin:0 auto;padding:32px 16px 56px;color:#121212;font-size:15px;line-height:1.5}
+.meta-qc-page{max-width:1400px;margin:0 auto;padding:32px 20px 56px;color:#121212;font-size:15px;line-height:1.5}
 .meta-qc-page h1{margin:0 0 12px;color:#121212;font-size:32px;line-height:1.2;font-weight:700}
 .meta-qc-page .meta-qc-page__lead{max-width:760px;margin:0 0 24px;font-size:17px}
 .meta-qc-page h2{margin:40px 0 12px;color:#121212;font-size:22px;font-weight:700}
@@ -80,6 +90,9 @@ function pageHtml(catalogUrl: string, count: number): string {
 .meta-qc-page li{margin:0 0 6px}
 .meta-qc-page a{color:#121212;text-decoration:underline}
 @media (max-width:575px){.meta-qc-page{padding-top:20px}.meta-qc-page h1{font-size:26px}}
+/* Theme: Bootstrap-Zeile um das HTML-Element hat negative Ränder – bei voller Breite 20 px Überlauf */
+.cms-block-container-row:has(> .col-12 > .cms-element-html .meta-qc-page){margin-left:0;margin-right:0}
+.cms-block-container-row:has(> .col-12 > .cms-element-html .meta-qc-page) > .col-12{padding-left:0;padding-right:0}
 </style>
 <div class="meta-qc-page">
 <h1>Regal-Schnellkonfigurator</h1>
@@ -106,7 +119,7 @@ function homeHtml(catalog: QuickConfigCatalog): string {
   const options = quickConfigSummary(catalog);
   return `<style>
 .meta-qc-home{padding:40px 0;background:#fff;border-bottom:1px solid #e3e3e3}
-.meta-qc-home__inner{max-width:1280px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px 40px;align-items:start}
+.meta-qc-home__inner{max-width:1400px;margin:0 auto;padding:0 20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:24px 40px;align-items:start}
 .meta-qc-home h2{margin:0 0 10px;color:#121212;font-size:26px;line-height:1.25;font-weight:700}
 .meta-qc-home__intro p{margin:0;color:#2b2b2b;font-size:15px;line-height:1.5}
 @media (max-width:991px){.meta-qc-home__inner{grid-template-columns:1fr}}
@@ -265,9 +278,8 @@ async function main(): Promise<void> {
 
   const products = await loadQuickConfigProducts(api, de.id);
   const { catalog, skipped, counts } = buildQuickConfigCatalog(products);
-  const json = JSON.stringify(catalog);
   console.log(`${base} · Kanal ${de.name}`);
-  console.log(`${products.length} Regale gelesen, ${catalog.items.length} in der Tabelle (${Math.round(json.length / 1024)} KB), ${skipped.length} ausgelassen`);
+  console.log(`${products.length} Regale gelesen, ${catalog.items.length} in der Tabelle, ${skipped.length} ausgelassen`);
   console.log(`  ${Object.entries(counts).map(([k, n]) => `${KIND_LABELS[k] ?? k} ${n}`).join(" · ")}`);
   for (const s of skipped.slice(0, 30)) console.log(`  ausgelassen: ${s.name} – ${s.reason}`);
   if (!catalog.items.length) throw new Error("Keine Regale gefunden");
@@ -277,6 +289,24 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Produktbild je Regalart (Titelbild des Beispiel-Grundregals). Der Testshop hat keine Bilddateien:
+  // mit --image-fallback <Shop-Adresse> dasselbe Medium von dort nehmen.
+  const examples = quickConfigImageItems(catalog);
+  const covers = (await api("POST", "search/product", {
+    ids: Object.values(examples).map((x) => x.id),
+    associations: { cover: { associations: { media: {} } } },
+    includes: { product: ["id", "cover"], product_media: ["media"], media: ["url"] },
+  }))?.data ?? [];
+  const fallback = arg("--image-fallback")?.replace(/\/$/, "");
+  const images: Record<string, QuickConfigImage> = {};
+  for (const [kind, ex] of Object.entries(examples)) {
+    let url: string | null = covers.find((p: any) => p.id === ex.id)?.cover?.media?.url ?? null;
+    if (url && !(await fetch(url, { method: "HEAD" }).catch(() => null))?.ok) url = fallback ? `${fallback}${new URL(url).pathname}` : null;
+    if (url) images[kind] = { url, system: ex.system, h: ex.h, b: ex.b, t: ex.t };
+    console.log(`  Bild ${KIND_LABELS[kind] ?? kind}: ${url ? `${ex.system} ${ex.h} x ${ex.b} x ${ex.t} mm – ${url}` : "keins"}`);
+  }
+  catalog.images = images;
+
   // Adresse darf nicht von einer fremden Seite belegt sein
   const taken = await api("POST", "search/seo-url", {
     filter: [{ type: "equals", field: "seoPathInfo", value: PAGE_URL }, { type: "equals", field: "salesChannelId", value: de.id }, { type: "equals", field: "isDeleted", value: false }],
@@ -285,6 +315,8 @@ async function main(): Promise<void> {
   const conflict = (taken?.data ?? []).find((u: any) => u.foreignKey !== IDS.lp);
   if (conflict) throw new Error(`/${PAGE_URL} ist schon vergeben (${conflict.routeName})`);
 
+  const json = JSON.stringify(catalog);
+  console.log(`Artikeltabelle ${Math.round(json.length / 1024)} KB`);
   const had = { media: await exists(api, "media", IDS.media), landingPage: await exists(api, "landing-page", IDS.lp), cmsPage: await exists(api, "cms-page", IDS.cms) };
   console.log(`Datei ${had.media ? "wird ersetzt" : "wird angelegt"}, Seite ${had.landingPage ? "wird ersetzt" : "wird angelegt"}: ${de.domain}/${PAGE_URL}`);
   if (!process.argv.includes("--apply")) {

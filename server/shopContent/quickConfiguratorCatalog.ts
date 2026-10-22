@@ -17,14 +17,17 @@
 import { parseCatalogName } from "../cross-selling/crossSellNameRules";
 import type { ShopApi } from "./shopProducts";
 
-/** Regalart → System und Artikelart im Namen */
-export const QUICK_CONFIG_KINDS: Array<{ key: string; systems: string[]; type: string }> = [
-  { key: "fachboden", systems: ["META CLIP", "META CLIP S3"], type: "Fachbodenregal" },
-  { key: "palette", systems: ["META MULTIPAL"], type: "Palettenregal" },
-  { key: "weitspann", systems: ["META MINI-RACK"], type: "Weitspannregal" },
-  { key: "kragarm", systems: ["META MULTISTRONG L", "META MULTISTRONG M"], type: "Kragarmregal" },
-  { key: "grossfach", systems: ["META MULTIPAL"], type: "Großfachregal" },
-  { key: "buero", systems: ["META CLIP COMPACT", "META CLIP COMPACT S3"], type: "Büro-Steckregal" },
+/**
+ * Regalart → System und Artikelart im Namen; `example` = Maße des Grundregals, dessen Produktbild der
+ * Konfigurator je Regalart zeigt (wie die Vorbelegung `defaults` in quick-configurator.js).
+ */
+export const QUICK_CONFIG_KINDS: Array<{ key: string; systems: string[]; type: string; example: { h: number; b: number; t: number } }> = [
+  { key: "fachboden", systems: ["META CLIP", "META CLIP S3"], type: "Fachbodenregal", example: { h: 2000, b: 1000, t: 500 } },
+  { key: "palette", systems: ["META MULTIPAL"], type: "Palettenregal", example: { h: 3300, b: 2700, t: 1100 } },
+  { key: "weitspann", systems: ["META MINI-RACK"], type: "Weitspannregal", example: { h: 2500, b: 1800, t: 800 } },
+  { key: "kragarm", systems: ["META MULTISTRONG L", "META MULTISTRONG M"], type: "Kragarmregal", example: { h: 2500, b: 1000, t: 500 } },
+  { key: "grossfach", systems: ["META MULTIPAL"], type: "Großfachregal", example: { h: 2700, b: 1825, t: 800 } },
+  { key: "buero", systems: ["META CLIP COMPACT", "META CLIP COMPACT S3"], type: "Büro-Steckregal", example: { h: 2200, b: 1000, t: 300 } },
 ];
 export const QUICK_CONFIG_ROLES = ["Grundregal", "Anbauregal", "Doppel-Grundregal", "Doppel-Anbauregal"] as const;
 
@@ -46,6 +49,9 @@ export function postWidthFromProperty(value: string | null | undefined): number 
   return m ? Number(m[1]) : null;
 }
 
+/** Produktbild je Regalart: Adresse und Merkmale des abgebildeten Grundregals (für die Bildunterschrift) */
+export type QuickConfigImage = { url: string; system: string; h: number; b: number; t: number };
+
 export type QuickConfigCatalog = {
   v: 2;
   generatedAt: string;
@@ -57,6 +63,8 @@ export type QuickConfigCatalog = {
   boards: string[];
   features: string[];
   items: QuickConfigRow[];
+  /** Regalart → Produktbild (fehlt, wenn kein Bild gefunden wurde) */
+  images?: Record<string, QuickConfigImage>;
 };
 
 export type QuickConfigSkip = { name: string; reason: string };
@@ -163,6 +171,25 @@ export function buildQuickConfigCatalog(
     skipped,
     counts,
   };
+}
+
+/**
+ * Je Regalart das Grundregal fürs Bild: einseitig, möglichst verzinkt, Maße am nächsten an `example`
+ * (bei Gleichstand die kleinste Last, dann die Reihenfolge der Tabelle).
+ */
+export function quickConfigImageItems(catalog: QuickConfigCatalog): Record<string, { id: string; system: string; h: number; b: number; t: number }> {
+  const result: Record<string, { id: string; system: string; h: number; b: number; t: number }> = {};
+  QUICK_CONFIG_KINDS.forEach((k, kind) => {
+    const score = (r: QuickConfigRow) => {
+      const surface = r[10] < 0 ? null : catalog.surfaces[r[10]];
+      return Math.abs(r[4] - k.example.h) + Math.abs(r[5] - k.example.b) + Math.abs(r[6] - k.example.t) + (surface && surface !== "verzinkt" ? 100000 : 0);
+    };
+    const best = catalog.items
+      .filter((r) => r[1] === kind && r[3] === 0 && r[11] === 0)
+      .reduce<QuickConfigRow | null>((a, r) => (!a || score(r) < score(a) || (score(r) === score(a) && r[7] < a[7]) ? r : a), null);
+    if (best) result[k.key] = { id: best[0], system: catalog.systems[best[2]], h: best[4], b: best[5], t: best[6] };
+  });
+  return result;
 }
 
 /** Auswahlwerte je Regalart für das kleine Formular auf der Startseite (ohne die ganze Tabelle zu laden). */

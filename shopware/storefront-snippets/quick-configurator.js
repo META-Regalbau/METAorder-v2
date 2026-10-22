@@ -11,6 +11,7 @@
  *   1 Grundregal und n Anbauregalen zusammen (so lang wie möglich, nie länger als angegeben), zeigt bei
  *   Bedarf eine Zeile mit gemischten Feldbreiten, holt die Preise in der Sitzung des Kunden von den
  *   Produktseiten (Händler- und Kundenpreise stimmen) und legt alles mit einem Klick in den Warenkorb.
+ *   Neben der Regallänge steht das Produktbild eines Beispiel-Grundregals der gewählten Regalart (aus der Tabelle).
  * - Startseite: kleines Formular (Abschnitt aus writeQuickConfiguratorPage.ts --home), das zur Seite führt.
  * - Einstiegskasten auf den Seiten und Listen der Regalarten.
  * - Produktseite eines Grund- oder Anbauregals: Link zum Konfigurator mit den Maßen des Artikels.
@@ -829,7 +830,25 @@ var MetaQuickConfigurator = (function () {
     else input.removeAttribute('aria-invalid');
   }
 
-  function mount(root, items) {
+  // Produktbild der Regalart (Beispiel-Grundregal aus der Artikeltabelle), ohne Bild nichts
+  function picture(kind, images) {
+    var img = images && images[kind];
+    if (!img || !img.url) return null;
+    var fig = el('figure', 'meta-qc__picture');
+    var image = el('img');
+    image.src = img.url;
+    image.alt = img.system + ' ' + KINDS[kind].label + ', Grundregal';
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    // Bild nicht abrufbar: ganzen Kasten ausblenden statt eines leeren Rahmens
+    image.addEventListener('error', function () { fig.hidden = true; });
+    fig.appendChild(image);
+    fig.appendChild(el('figcaption', null, 'Abbildung: ' + img.system + ' Grundregal, ' +
+      formatNumber(img.h) + ' × ' + formatNumber(img.b) + ' × ' + formatNumber(img.t) + ' mm'));
+    return fig;
+  }
+
+  function mount(root, items, images) {
     var q = normalizeQuery(items, readQuery(window.location.search));
     root.innerHTML = '';
     root.classList.add('meta-qc--ready');
@@ -900,7 +919,11 @@ var MetaQuickConfigurator = (function () {
       var len = lengthField('meta-qc-length', typed);
       lengthBox = len.box;
       lengthInput = len.input;
-      form.appendChild(lengthBox);
+      var top = el('div', 'meta-qc__top');
+      top.appendChild(lengthBox);
+      var fig = picture(q.kind, images);
+      if (fig) top.appendChild(fig);
+      form.appendChild(top);
       lengthInput.addEventListener('input', onTyping);
       var kindSelect = el('select', 'form-select');
       availableKinds(items).forEach(function (k) {
@@ -1052,7 +1075,7 @@ var MetaQuickConfigurator = (function () {
       .then(function (raw) {
         var items = decodeCatalog(raw);
         if (!items.length) throw new Error('leer');
-        mount(root, items);
+        mount(root, items, raw.images || {});
       })
       .catch(fail);
   }

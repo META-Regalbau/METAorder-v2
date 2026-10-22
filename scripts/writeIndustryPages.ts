@@ -37,7 +37,8 @@ import { DE_CHANNEL_NAME, DE_LANG, findDeChannel, loadIndustryShopProducts, prod
 
 const ALL_DEVICES = { mobile: true, tablet: true, desktop: true };
 const NO_MARGINS = { marginTop: "0", marginBottom: "0", marginLeft: "0", marginRight: "0" };
-const SLIDER_MARGINS = { marginTop: "0", marginBottom: "20px", marginLeft: "20px", marginRight: "20px" };
+// Seitlich ohne Rand: Slider und FAQ stehen bündig mit dem Theme-Container (wie Überschriften und Bestseller)
+const SLIDER_MARGINS = { marginTop: "0", marginBottom: "20px", marginLeft: "0", marginRight: "0" };
 
 
 type Protocol = {

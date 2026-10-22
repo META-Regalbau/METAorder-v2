@@ -31,7 +31,8 @@ import { findDeChannel, loadIndustryShopProducts, productProblemText, shopApi } 
 
 const ALL_DEVICES = { mobile: true, tablet: true, desktop: true };
 const NO_MARGINS = { marginTop: "0", marginBottom: "0", marginLeft: "0", marginRight: "0" };
-const SLIDER_MARGINS = { marginTop: "0", marginBottom: "20px", marginLeft: "20px", marginRight: "20px" };
+// Seitlich ohne Rand: Slider stehen bündig mit dem Theme-Container (wie Überschriften und Bestseller)
+const SLIDER_MARGINS = { marginTop: "0", marginBottom: "20px", marginLeft: "0", marginRight: "0" };
 /** Gemeinsame FAQ-Gruppe der Branchenseiten (Prüfpflicht, Regal-Lexikon) */
 const COMMON_FAQ_GROUP_ID = industryEntityId("common", "faq");
 const COMMON_FAQ_QUESTION = "Müssen Regale regelmäßig geprüft werden?";
