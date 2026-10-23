@@ -126,7 +126,8 @@ export class ObjectStorageService {
     return { uploadUrl: signedUrl, objectKey };
   }
 
-  async downloadToResponse(objectKey: string, res: Response): Promise<void> {
+  /** `contentType` überschreibt den gespeicherten Typ (der beim Upload vom Absender kam). */
+  async downloadToResponse(objectKey: string, res: Response, opts?: { contentType?: string }): Promise<void> {
     if (!this.isConfigured()) {
       throw new Error("Object storage not configured");
     }
@@ -140,7 +141,7 @@ export class ObjectStorageService {
       }
 
       res.set({
-        "Content-Type": out.ContentType || "application/octet-stream",
+        "Content-Type": opts?.contentType || out.ContentType || "application/octet-stream",
         ...(out.ContentLength != null && { "Content-Length": String(out.ContentLength) }),
         "Cache-Control": "private, max-age=3600",
       });

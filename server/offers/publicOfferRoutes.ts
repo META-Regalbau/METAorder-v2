@@ -16,16 +16,9 @@ import { applyOfferConfigPdfLayoutFromRequest, generateOfferConfigPdf } from "./
 import { buildOfferConfigPdfInputWithCpqFallback } from "./offerConfigPdfCpqFallback";
 import { enrichOfferConfigPdfInputWithTexts } from "./offerConfigPdfTexts";
 import { logger } from "../lib/logger";
+import { clientIp } from "../lib/clientIp";
 
 const log = logger.child({ component: "offers/publicOfferRoutes" });
-
-function clientIp(req: Request): string {
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0]!.trim();
-  }
-  return req.socket.remoteAddress || "unknown";
-}
 
 async function resolveValidLink(token: string) {
   const hash = hashOfferPublicToken(token);

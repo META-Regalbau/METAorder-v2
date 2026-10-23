@@ -308,13 +308,29 @@ describe("Einstellungen: n8n-Verbindung (Routen)", () => {
     expect(await call("GET", "/api/settings/n8n-connection")).toEqual({ status: 200, body: { configured: true, baseUrl: N8N, hasApiKey: true } });
   });
 
-  it("leerer Key behaelt den gespeicherten; neuer Key ersetzt ihn", async () => {
+  it("leerer Key behaelt den gespeicherten nur bei gleicher Adresse; neuer Key ersetzt ihn", async () => {
     await call("POST", "/api/settings/n8n-connection", { baseUrl: N8N, apiKey: KEY });
-    await call("POST", "/api/settings/n8n-connection", { baseUrl: "https://n8n.firma.de", apiKey: "" });
-    expect(settings.get("n8n_connection").baseUrl).toBe("https://n8n.firma.de");
+    await call("POST", "/api/settings/n8n-connection", { baseUrl: `${N8N}/api/v1`, apiKey: "" });
     expect(decrypt(settings.get("n8n_connection").apiKey)).toBe(KEY);
-    await call("POST", "/api/settings/n8n-connection", { baseUrl: N8N, apiKey: OTHER_KEY });
+    // andere Adresse ohne Key: gespeicherter Key darf nicht mitwandern
+    expect(await call("POST", "/api/settings/n8n-connection", { baseUrl: "https://n8n.firma.de", apiKey: "" })).toMatchObject({
+      status: 400,
+      body: { code: "secret_required_for_new_target" },
+    });
+    expect(settings.get("n8n_connection").baseUrl).toBe(N8N);
+    await call("POST", "/api/settings/n8n-connection", { baseUrl: "https://n8n.firma.de", apiKey: OTHER_KEY });
+    expect(settings.get("n8n_connection").baseUrl).toBe("https://n8n.firma.de");
     expect(decrypt(settings.get("n8n_connection").apiKey)).toBe(OTHER_KEY);
+  });
+
+  it("testen gegen fremde Adresse schickt den gespeicherten Key nicht", async () => {
+    await call("POST", "/api/settings/n8n-connection", { baseUrl: N8N, apiKey: KEY });
+    const before = n8n.calls.length;
+    expect(await call("POST", "/api/settings/n8n-connection/test", { baseUrl: "https://angreifer.example" })).toMatchObject({
+      status: 400,
+      body: { code: "secret_required_for_new_target" },
+    });
+    expect(n8n.calls.length).toBe(before);
   });
 
   it("testen: mit eingegebenem oder gespeichertem Key, ohne zu speichern; Ablehnung als Code", async () => {

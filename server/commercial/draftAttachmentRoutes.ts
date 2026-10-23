@@ -9,6 +9,7 @@ import type { Response } from "express";
 import type { DraftAttachment } from "@shared/schema";
 import { attachmentKindLabelDe } from "./commercialAttachmentClassifier";
 import { getUploadsRoot } from "../uploadsRoot";
+import { setSafeFileHeaders } from "../lib/safeFileResponse";
 
 export type DraftAttachmentApi = Omit<DraftAttachment, "filePath"> & { documentKindLabel: string };
 
@@ -46,8 +47,7 @@ export async function sendDraftAttachmentFile(
     res.status(410).json({ error: "Attachment file no longer available" });
     return;
   }
-  res.setHeader("Content-Type", attachment.mimeType || "application/octet-stream");
-  res.setHeader("Content-Disposition", `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
+  setSafeFileHeaders(res, { mimeType: attachment.mimeType, fileName: attachment.fileName, wanted: "inline" });
   res.setHeader("Cache-Control", "private, max-age=3600");
   await new Promise<void>((resolve) => {
     res.sendFile(path.resolve(attachment.filePath), (err) => {

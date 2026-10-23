@@ -4,6 +4,7 @@ import { storage } from "../storage";
 import { createB2BAdminClient } from "./b2bSellersAdmin";
 import { runWithTenantContext } from "../lib/tenantContext";
 import { logger } from "../lib/logger";
+import { clientIp } from "../lib/clientIp";
 import {
   processPortalPasswordRequest,
   rateLimitPortalPasswordAccount,
@@ -19,14 +20,6 @@ async function resolvePortalTenantId(): Promise<string | null> {
   const name = (process.env.B2B_PORTAL_PASSWORD_TENANT || PORTAL_PASSWORD_TENANT_DEFAULT).trim();
   const tenant = await storage.getTenantByName(name);
   return tenant?.id ?? null;
-}
-
-function clientIp(req: Request): string {
-  const xff = req.headers["x-forwarded-for"];
-  if (typeof xff === "string" && xff.length > 0) {
-    return xff.split(",")[0]!.trim();
-  }
-  return req.socket.remoteAddress || "unknown";
 }
 
 const requestSchema = z.object({

@@ -27,6 +27,7 @@ import {
   type OrderAcknowledgement,
 } from "./commercialOrderAcknowledgement";
 import { logger } from "../lib/logger";
+import { clientIp } from "../lib/clientIp";
 
 const log = logger.child({ component: "commercial/commercialAcknowledgementRoutes" });
 
@@ -48,10 +49,6 @@ export function rateLimitAcknowledgement(key: string, now: number = Date.now()):
 /** Nur für Tests — verhindert Übersprechen zwischen Fällen. */
 export function resetAcknowledgementRateLimit(): void {
   buckets.clear();
-}
-
-function clientIp(req: Request): string {
-  return (req.ip || req.socket?.remoteAddress || "unknown").toString();
 }
 
 type ResolvedToken = { id: string; tenantId: string; shopwareCustomerId: string };

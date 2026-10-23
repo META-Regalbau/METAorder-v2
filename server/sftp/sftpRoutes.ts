@@ -13,24 +13,50 @@
 
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
-import type { SftpServer } from "@shared/schema";
+import type { InsertSftpServer, SftpServer } from "@shared/schema";
 import { requireAuth, requireCsrf, requireManageOrderDrafts, requireManageSettings } from "../auth/auth";
 import { storage } from "../storage";
 import {
   bodyToSftpServerValues,
   sftpServerBodySchema,
   sftpServerPatchSchema,
+  type SftpServerPatch,
   toSftpServerApi,
   validateSftpAuth,
 } from "./sftpServers";
 import { testSftpServer, uploadDraftAttachmentsToSftp } from "./sftpUpload";
 import { listDraftAttachmentsForApi } from "../commercial/draftAttachmentRoutes";
 import { logger } from "../lib/logger";
+import { mayReuseStoredSecretForHost } from "../lib/storedSecretTarget";
 
 const log = logger.child({ component: "sftp/sftpRoutes" });
 
 function zodMessage(error: z.ZodError): string {
   return error.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; ");
+}
+
+const NEW_TARGET_NEEDS_SECRET = "Neue Adresse: Zugangsdaten bitte erneut eingeben";
+
+/**
+ * Host oder Port geändert: gespeicherte Secrets nicht an die neue Adresse schicken
+ * (server/lib/storedSecretTarget.ts). Verlangt das zur Anmeldeart passende neue
+ * Secret und setzt nicht neu eingegebene Secrets in `values` auf null.
+ */
+function guardStoredSftpSecrets(
+  base: SftpServer,
+  body: SftpServerPatch,
+  values: Partial<InsertSftpServer>,
+): string | null {
+  const host = values.host ?? base.host;
+  const port = values.port ?? base.port;
+  if (mayReuseStoredSecretForHost({ host, port }, base)) return null;
+  const provided = (v: string | null | undefined) => typeof v === "string" && v.trim() !== "";
+  const authMethod = values.authMethod ?? base.authMethod;
+  if (!provided(authMethod === "password" ? body.password : body.privateKey)) return NEW_TARGET_NEEDS_SECRET;
+  for (const key of ["password", "privateKey", "passphrase"] as const) {
+    if (!provided(body[key])) values[key] = null;
+  }
+  return null;
 }
 
 /** Testdaten aus Body (unverschlüsselt) über einen gespeicherten Server legen. */
@@ -49,6 +75,10 @@ function mergeForTest(base: SftpServer | null, body: unknown): SftpServer | { er
   keepStored("password");
   keepStored("privateKey");
   keepStored("passphrase");
+  if (base) {
+    const guardError = guardStoredSftpSecrets(base, b, values);
+    if (guardError) return { error: guardError };
+  }
   const merged: SftpServer = {
     id: base?.id ?? "unsaved",
     tenantId: base?.tenantId ?? null,
@@ -153,6 +183,8 @@ export function registerSftpRoutes(app: Express): void {
       } catch (e) {
         return res.status(400).json({ error: e instanceof Error ? e.message : "Ungültige Eingabe" });
       }
+      const guardError = guardStoredSftpSecrets(existing, parsed.data, values);
+      if (guardError) return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben" });
       const merged = { ...existing, ...values };
       const authError = validateSftpAuth(merged);
       if (authError) return res.status(400).json({ error: authError });
