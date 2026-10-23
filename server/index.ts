@@ -163,8 +163,8 @@ app.use((req, res, next) => {
   if (req.path.startsWith("/api/cpq/public/") || req.path.startsWith("/api/cpq-core/public/")) {
     return next();
   }
-  // Skip CSRF for debug ingest endpoint
-  if (req.path.startsWith("/ingest/")) {
+  // Skip CSRF for debug ingest endpoint (gibt es nur ausserhalb von Produktion)
+  if (process.env.NODE_ENV !== "production" && req.path.startsWith("/ingest/")) {
     return next();
   }
   // Apply CSRF validation to all other POST/PUT/DELETE requests
@@ -173,18 +173,22 @@ app.use((req, res, next) => {
 
 app.use(requestLoggingMiddleware((metric) => metricsCollectorService.collectHttpMetric(metric)));
 
-app.post("/ingest/:id", (req, res) => {
-  try {
-    const payload = JSON.stringify(req.body || {});
-    if (payload && payload !== "{}") {
-      fs.mkdirSync(path.dirname(DEBUG_LOG_PATH), { recursive: true });
-      fs.appendFileSync(DEBUG_LOG_PATH, `${payload}\n`);
+// Debug-Senke ohne Anmeldung: in Produktion nicht registrieren, sonst kann jeder
+// beliebig viel in .logs/debug.log schreiben (Platte voll).
+if (process.env.NODE_ENV !== "production") {
+  app.post("/ingest/:id", (req, res) => {
+    try {
+      const payload = JSON.stringify(req.body || {});
+      if (payload && payload !== "{}") {
+        fs.mkdirSync(path.dirname(DEBUG_LOG_PATH), { recursive: true });
+        fs.appendFileSync(DEBUG_LOG_PATH, `${payload}\n`);
+      }
+    } catch {
+      // Intentionally ignore logging failures in debug sink
     }
-  } catch {
-    // Intentionally ignore logging failures in debug sink
-  }
-  res.status(204).end();
-});
+    res.status(204).end();
+  });
+}
 
 /**
  * Systemprotokoll (Viewer /admin/logs): gepufferte Log-Zeilen ab jetzt in app_logs schreiben,

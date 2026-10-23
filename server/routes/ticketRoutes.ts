@@ -24,6 +24,7 @@ import { parseEmailFile } from "../email/emailParser";
 import * as XLSX from "xlsx";
 import { DEFAULT_TICKET_SLA_SETTINGS, assignTicketAutomatically, filterTicketsBySalesChannels, getMirrorOrdersLikeLive, getSalesChannelFilter, getTicketSlaSettings, resolveAttachmentPath, sanitizeFilename, uploadRateLimiter } from "./routeHelpers";
 import { logger } from "../lib/logger";
+import { setSafeFileHeaders } from "../lib/safeFileResponse";
 import { getReplyByTicket } from "../commercial/emailIntakeReplies";
 
 const moduleLog = logger.child({ component: "routes/ticketRoutes" });
@@ -1433,9 +1434,9 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         }
         
         try {
-          // Set headers for inline preview
-          res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
-          await objectStorageService.downloadToResponse(objectKey, res);
+          // Vorschau nur für harmlose Typen inline (Absender bestimmt den MIME-Typ)
+          const headers = setSafeFileHeaders(res, { mimeType: attachment.mimeType, fileName: attachment.fileName, wanted: "inline" });
+          await objectStorageService.downloadToResponse(objectKey, res, { contentType: headers["Content-Type"] });
           moduleLog.info(`[Preview] Successfully served from Object Storage: ${attachment.fileName}`);
         } catch (error) {
           if (error instanceof ObjectNotFoundError) {
@@ -1470,9 +1471,8 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         });
       }
 
-      // Set appropriate headers for inline preview
-      res.setHeader('Content-Type', attachment.mimeType);
-      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(attachment.fileName)}"`);
+      // Vorschau nur für harmlose Typen inline (Absender bestimmt den MIME-Typ)
+      setSafeFileHeaders(res, { mimeType: attachment.mimeType, fileName: attachment.fileName, wanted: "inline" });
       res.setHeader('Content-Length', attachment.fileSize);
       res.setHeader('Cache-Control', 'private, max-age=3600');
 
@@ -1524,9 +1524,8 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         }
         
         try {
-          // Set headers for download
-          res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
-          await objectStorageService.downloadToResponse(objectKey, res);
+          const headers = setSafeFileHeaders(res, { mimeType: attachment.mimeType, fileName: attachment.fileName, wanted: "attachment" });
+          await objectStorageService.downloadToResponse(objectKey, res, { contentType: headers["Content-Type"] });
           moduleLog.info(`[Download] Successfully served from Object Storage: ${attachment.fileName}`);
         } catch (error) {
           if (error instanceof ObjectNotFoundError) {
@@ -1561,9 +1560,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         });
       }
 
-      // Set appropriate headers for download
-      res.setHeader('Content-Type', attachment.mimeType);
-      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.fileName)}"`);
+      setSafeFileHeaders(res, { mimeType: attachment.mimeType, fileName: attachment.fileName, wanted: "attachment" });
       res.setHeader('Content-Length', attachment.fileSize);
 
       // Stream the file

@@ -24,6 +24,7 @@ import { SEMANTIC_RANKING_DEFAULTS } from "../semantic/semanticRanking";
 import { logger } from "../lib/logger";
 import { clearShopwareAuthPause } from "../shopware/shopwareTokenCache";
 import { describeIntegrationUser, listIntegrationUserCandidates, loadFallbackIntegrationUser } from "../integration/integrationKeyUsers";
+import { mayReuseStoredSecretForUrl } from "../lib/storedSecretTarget";
 import {
   loadN8nConnection,
   loadN8nOverview,
@@ -77,6 +78,9 @@ export function registerSettingsRoutes(app: Express): void {
       const validated = settingsSchema.parse(req.body);
       const existing = await storage.getShopwareSettings();
       const hasNewSecret = validated.apiSecret && validated.apiSecret.trim().length > 0;
+      if (!hasNewSecret && existing?.apiSecret && !mayReuseStoredSecretForUrl(validated.shopwareUrl, existing.shopwareUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiSecret = hasNewSecret ? validated.apiSecret! : existing?.apiSecret;
 
       if (!apiSecret) {
@@ -372,6 +376,9 @@ export function registerSettingsRoutes(app: Express): void {
       }
       const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
       const existing = await loadN8nConnection((key) => storage.getSetting(key));
+      if (!newKey && existing?.apiKey && !mayReuseStoredSecretForUrl(normalized.baseUrl, existing.baseUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiKey = newKey || existing?.apiKey || "";
       if (!apiKey) {
         return res.status(400).json({ error: "n8n-API-Key fehlt", code: "n8n_key_missing" });
@@ -404,6 +411,9 @@ export function registerSettingsRoutes(app: Express): void {
         return res.status(400).json({ error: "Ungültige n8n-Adresse", code: normalized.code });
       }
       const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
+      if (!newKey && existing?.apiKey && !mayReuseStoredSecretForUrl(normalized.baseUrl, existing.baseUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiKey = newKey || existing?.apiKey || "";
       if (!apiKey) {
         return res.status(400).json({ error: "n8n-API-Key fehlt", code: "n8n_key_missing" });
@@ -463,6 +473,9 @@ export function registerSettingsRoutes(app: Express): void {
       }
       const newKey = typeof req.body?.apiKey === "string" ? req.body.apiKey.trim() : "";
       const existing = await loadPimcoreConnection((key) => storage.getSetting(key));
+      if (!newKey && existing?.apiKey && !mayReuseStoredSecretForUrl(normalized.target.baseUrl, existing.baseUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiKey = newKey || existing?.apiKey || "";
       if (!apiKey) {
         return res.status(400).json({ error: "Pimcore-API-Key fehlt", code: "pimcore_key_missing" });
@@ -503,6 +516,9 @@ export function registerSettingsRoutes(app: Express): void {
         return res.status(400).json({ error: "Ungültige Pimcore-Angaben", code: normalized.code });
       }
       const newKey = typeof body.apiKey === "string" ? body.apiKey.trim() : "";
+      if (!newKey && existing?.apiKey && !mayReuseStoredSecretForUrl(normalized.target.baseUrl, existing.baseUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiKey = newKey || existing?.apiKey || "";
       if (!apiKey) {
         return res.status(400).json({ error: "Pimcore-API-Key fehlt", code: "pimcore_key_missing" });
@@ -527,6 +543,9 @@ export function registerSettingsRoutes(app: Express): void {
       const validated = settingsSchema.parse(req.body);
       const existing = await storage.getShopwareSettings();
       const hasNewSecret = validated.apiSecret && validated.apiSecret.trim().length > 0;
+      if (!hasNewSecret && existing?.apiSecret && !mayReuseStoredSecretForUrl(validated.shopwareUrl, existing.shopwareUrl)) {
+        return res.status(400).json({ error: "Neue Adresse: Zugangsdaten bitte erneut eingeben", code: "secret_required_for_new_target" });
+      }
       const apiSecret = hasNewSecret ? validated.apiSecret! : existing?.apiSecret;
 
       if (!apiSecret) {
