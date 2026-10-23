@@ -28,6 +28,7 @@
  */
 import { createHash } from "crypto";
 import { readFileSync, writeFileSync } from "fs";
+import { isSafeHref } from "../shared/shopContent";
 import { storage } from "../server/storage";
 import { INDUSTRY_COMMON, INDUSTRY_PAGES, referencedNumbers, type IndustryPage } from "../server/products/industryPages";
 import { IndustryPageHtml, homeTeaserHtml, industryPageCss, type IndustryShopProduct } from "../server/products/industryPageHtml";
@@ -79,7 +80,7 @@ function buildCmsPage(page: IndustryPage, products: Record<string, IndustryShopP
   const h = new IndustryPageHtml(page, products, {
     notes: false,
     cartForm: true,
-    linkHref: (t) => (t.startsWith("/") || t.startsWith("#") ? t : `/search?search=${encodeURIComponent(t)}`),
+    linkHref: (t) => (/^[/#]/.test(t) && isSafeHref(t) ? t : `/search?search=${encodeURIComponent(t)}`),
   });
   const wrap = (inner: string) => `<div class="mbp">${inner}</div>`;
   const style = `<style>${industryPageCss(".mbp")}</style>`;

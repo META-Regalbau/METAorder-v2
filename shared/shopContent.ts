@@ -22,6 +22,17 @@ export const INDUSTRY_NOTE_KEYS = ["nav", "hero", "facts", "areas", "planning", 
 
 const text = z.string();
 
+/**
+ * Erlaubte Linkziele in Shop-Inhalten: Sprungmarke (#abschnitt), Pfad im Shop (/pfad, nicht //fremder-host)
+ * oder http(s)-Adresse. Andere (javascript:, data: …) ersetzt der HTML-Bau durch "#"; die Prüfregeln melden sie.
+ */
+export function isSafeHref(href: string): boolean {
+  if (/[\s\\\u0000-\u001f]/.test(href)) return false;
+  if (/^#[\w-]*$/.test(href)) return true;
+  if (/^\/(?![/\\])/.test(href)) return true;
+  return /^https?:\/\/[^/]/i.test(href);
+}
+
 export const industryNoteSchema = z.object({ text, src: text.optional(), checks: z.array(text).optional() });
 const whySchema = z.object({ title: text, text });
 const docSchema = z.object({ label: text, where: text });

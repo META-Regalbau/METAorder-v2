@@ -62,3 +62,15 @@ describe("industryPages", () => {
     expect(html).toContain('href="tel:+4929329570"');
   });
 });
+
+describe("industryPages: Links im HTML", () => {
+  it("ersetzt unsichere Linkziele durch #", () => {
+    const kfz = INDUSTRY_PAGES.find((p) => p.key === "kfz")!;
+    const page = { ...kfz, project: { ...kfz.project, link: { label: "Referenz", href: "javascript:alert(1)" } } };
+    const r = new IndustryPageHtml(page, {}, { notes: false, cartForm: false, linkHref: () => "//example.org" });
+    const html = r.areas() + r.project() + r.more(INDUSTRY_PAGES, () => "javascript:alert(2)");
+    expect(html).not.toContain("javascript:");
+    expect(html).not.toContain('href="//example.org"');
+  });
+});
+

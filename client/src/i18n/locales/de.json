@@ -8063,7 +8063,7 @@
       "tableShape": "Tabellenzeile hat {{cells}} Zellen, die Tabelle {{columns}} Spalten",
       "htmlNotAllowed": "HTML nicht erlaubt: {{tag}} (nur <b> und <br>)",
       "tableColumnMissing": "Spalte {{column}} gibt es in der Tabelle nicht",
-      "linkTarget": "Link-Ziel: nur Pfad (/…) oder Suchbegriff",
+      "linkTarget": "Link-Ziel: nur Pfad (/…), Sprungmarke (#…) oder Suchbegriff",
       "linkHttps": "Link muss mit https:// beginnen",
       "areaCount": "{{count}} Lagerbereiche (Raster der Seite: {{expected}})",
       "productCount": "{{count}} Produkte (Slider der Seite: {{expected}})",
