@@ -15,6 +15,7 @@ import {
   EMAIL_INTAKE_CATEGORIES,
   findIntakeMailbox,
   isForwardTargetIntakeMailbox,
+  isInquiryTargetRouteMailbox,
   emailIntakeSettingsSchema,
   isValidIntakeEmail,
   type EmailIntakeResponse,
@@ -97,6 +98,16 @@ export function registerEmailIntakeRoutes(app: Express): void {
       }
       if (settings.mailboxes.some((m) => m.address && !isValidIntakeEmail(m.address))) {
         return res.status(400).json({ error: "Ungültige Postfach-Adresse", code: "email_intake_mailbox_invalid" });
+      }
+      if (settings.inquiryForwardTo && !isValidIntakeEmail(settings.inquiryForwardTo)) {
+        return res.status(400).json({ error: "Ungültige Adresse für Anfragen", code: "email_intake_inquiry_forward_invalid" });
+      }
+      // Ein Verteilpostfach als Ziel der Anfragen: zwei Verteilpostfächer würden sich die Mail zuschieben
+      if (isInquiryTargetRouteMailbox(settings)) {
+        return res.status(400).json({
+          error: "Die Adresse für Anfragen ist selbst ein Verteilpostfach",
+          code: "email_intake_inquiry_forward_is_route",
+        });
       }
       // Weiterleitungsziel = angebundenes Postfach: die Mail käme wieder an und würde erneut weitergeleitet
       if (isForwardTargetIntakeMailbox(settings)) {

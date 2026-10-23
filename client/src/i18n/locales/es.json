@@ -1628,7 +1628,7 @@
         "mailboxMode": "Tipo",
         "mailboxModeOrder": "Buzón de pedidos",
         "mailboxModePersonal": "Buzón personal",
-        "mailboxModeHint": "Buzón de pedidos: los correos tratados pasan a la carpeta de destino, «Otros» se reenvía. Buzón personal: no se mueve ni reenvía nada, METAorder solo pone categorías.",
+        "mailboxModeHint": "Buzón de pedidos: los correos procesados se mueven a la carpeta de destino y los «otros» se reenvían. Buzón personal: no se mueve ni se reenvía nada, METAorder solo asigna categorías. Buzón de distribución (p. ej. digital-service@): sin borrador; las consultas de productos y de ofertas, así como los pedidos, se envían a la dirección indicada en «Consultas de buzones de distribución»; todo lo demás se queda en la bandeja de entrada.",
         "mailboxEnabled": "activo",
         "mailboxRemove": "Quitar buzón",
         "mailboxAdd": "Añadir buzón",
@@ -1645,7 +1645,16 @@
         "filterSubjectKeywords": "Ignorar si el asunto contiene",
         "filterSubjectKeywordsHint": "Una palabra clave por línea, sin distinguir mayúsculas.",
         "filterInternalDomains": "Otros dominios internos",
-        "filterInternalDomainsHint": "Los dominios de los buzones cuentan automáticamente como internos."
+        "filterInternalDomainsHint": "Los dominios de los buzones cuentan automáticamente como internos.",
+        "mailboxModeRoute": "Buzón de distribución (reenviar consultas)",
+        "routeSection": "Consultas de buzones de distribución",
+        "routeSectionHint": "En los buzones del tipo «buzón de distribución», la IA revisa cada correo: ¿pregunta un cliente por productos META, pide una oferta o hace un pedido? En ese caso, Outlook reenvía el correo original a la dirección indicada abajo, con la clasificación y la dirección del cliente al principio. Allí, la entrada de correo crea el borrador como de costumbre. Las ofertas de proveedores de servicios, las facturas, las notificaciones de herramientas y las consultas sobre pedidos en curso se quedan en el buzón de distribución. El correo siempre se queda en la bandeja de entrada y recibe la categoría «METAorder: weitergeleitet» o «METAorder: geprüft».",
+        "inquiryForwardTo": "Reenviar consultas a",
+        "inquiryForwardToPlaceholder": "shop@meta-online.com",
+        "inquiryForwardToHint": "Normalmente el buzón de la tienda. Se permite un buzón de pedidos de los de arriba (allí se crea el borrador), pero no un buzón de distribución.",
+        "inquiryForwardToEmpty": "Sin dirección, las consultas solo se marcan, no se reenvían.",
+        "inquiryMinConfidence": "Reenviar a partir de una seguridad de (%)",
+        "inquiryMinConfidenceHint": "Deliberadamente más bajo que para «otros»: un correo de más en el buzón de la tienda perjudica menos que una consulta pasada por alto."
       },
       "mondu": {
         "title": "Mondu",
@@ -5836,7 +5845,9 @@
       "portal_news_no_text": "No hay texto de correo.",
       "portal_news_insert_failed": "No se pudo crear la entrada.",
       "portal_news_page_failed": "No se pudo escribir la página en la tienda.",
-      "portal_news_mailbox_invalid": "Dirección de buzón no válida."
+      "portal_news_mailbox_invalid": "Dirección de buzón no válida.",
+      "email_intake_inquiry_forward_invalid": "La dirección para consultas de buzones de distribución no es una dirección de correo válida.",
+      "email_intake_inquiry_forward_is_route": "La dirección para consultas es a su vez un buzón de distribución. Introduzca el buzón de la tienda u otro buzón de pedidos."
     },
     "client": {
       "notModified": "Respuesta de la API sin cambios (304): vuelva a cargar la página.",
@@ -6832,7 +6843,9 @@
       "invalid_customer_mail_run": "Envío incompleto (tipo, plantilla, remitente y asunto obligatorios)",
       "failed_to_create_customer_mail_run": "No se pudo crear el envío",
       "failed_to_load_customer_mail_effect": "No se pudo cargar el efecto",
-      "beitrag_nicht_gefunden": "Entrada no encontrada"
+      "beitrag_nicht_gefunden": "Entrada no encontrada",
+      "ungultige_adresse_fur_anfragen": "Dirección para consultas no válida",
+      "die_adresse_fur_anfragen_ist_selbst_ein_verteilpostfach": "La dirección para consultas es a su vez un buzón de distribución"
     }
   },
   "roomPlanner": {

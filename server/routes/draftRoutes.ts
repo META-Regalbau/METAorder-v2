@@ -542,6 +542,8 @@ export function registerDraftRoutes(app: Express): void {
                   ? { settings: intakeSettings.filter, internalDomains: internalDomainsFor(intakeSettings) }
                   : null,
               skipMetaorderForwards: Boolean(intakeSettings),
+              // Verteilpostfach: nur einordnen und ggf. an das Shop-Postfach weiterleiten, kein Entwurf
+              route: intakeMailboxMode === "route" ? {} : null,
             };
             // n8n-Abruf: Problem-Ticket mit der Originalmail statt 500 (sonst nur ein n8n-Fehler ohne Mail)
             const failIntake = async (errorText: string, settings: NonNullable<typeof intakeSettings>) => {
@@ -656,6 +658,7 @@ export function registerDraftRoutes(app: Express): void {
                   integrationUser: { id: userId, email: user?.email ?? null },
                   appBaseUrl: publicAppBaseUrl(`${req.protocol}://${req.get("host") || ""}`),
                   mailboxMode: intakeMailboxMode,
+                  mailboxAddress: intakeMailbox?.address || null,
                 })
               : undefined;
             if (intake && intakeSettings) {

@@ -1779,7 +1779,7 @@
         "mailboxMode": "Art",
         "mailboxModeOrder": "Bestellpostfach",
         "mailboxModePersonal": "Persönliches Postfach",
-        "mailboxModeHint": "Bestellpostfach: erledigte Mails wandern in den Zielordner, „Sonstiges“ wird weitergeleitet. Persönliches Postfach: nichts wird verschoben oder weitergeleitet, METAorder setzt nur Kategorien.",
+        "mailboxModeHint": "Bestellpostfach: erledigte Mails wandern in den Zielordner, „Sonstiges“ wird weitergeleitet. Persönliches Postfach: nichts wird verschoben oder weitergeleitet, METAorder setzt nur Kategorien. Verteilpostfach (z. B. digital-service@): kein Entwurf; Produkt- und Angebotsanfragen sowie Bestellungen gehen an die Adresse unter „Anfragen aus Verteilpostfächern“, alles andere bleibt im Posteingang.",
         "mailboxEnabled": "aktiv",
         "mailboxRemove": "Postfach entfernen",
         "mailboxAdd": "Postfach hinzufügen",
@@ -1796,7 +1796,16 @@
         "filterSubjectKeywords": "Ignorieren, wenn der Betreff enthält",
         "filterSubjectKeywordsHint": "Ein Stichwort je Zeile, Groß- und Kleinschreibung egal.",
         "filterInternalDomains": "Weitere interne Domains",
-        "filterInternalDomainsHint": "Die Domains der Postfächer zählen automatisch als intern."
+        "filterInternalDomainsHint": "Die Domains der Postfächer zählen automatisch als intern.",
+        "mailboxModeRoute": "Verteilpostfach (Anfragen weiterleiten)",
+        "routeSection": "Anfragen aus Verteilpostfächern",
+        "routeSectionHint": "Für Postfächer der Art „Verteilpostfach“ prüft die KI jede Mail: Fragt ein Kunde nach META-Produkten, möchte er ein Angebot oder bestellt er? Dann leitet Outlook die Originalmail an die Adresse unten weiter, oben steht die Einordnung und die Adresse des Kunden. Dort legt der E-Mail-Eingang wie gewohnt den Entwurf an. Angebote von Dienstleistern, Rechnungen, Tool-Benachrichtigungen und Rückfragen zu laufenden Bestellungen bleiben im Verteilpostfach. Die Mail bleibt immer im Posteingang und bekommt die Kategorie „METAorder: weitergeleitet“ bzw. „METAorder: geprüft“.",
+        "inquiryForwardTo": "Anfragen weiterleiten an",
+        "inquiryForwardToPlaceholder": "shop@meta-online.com",
+        "inquiryForwardToHint": "In der Regel das Shop-Postfach. Ein Bestellpostfach von oben ist erlaubt (dort entsteht der Entwurf), ein Verteilpostfach nicht.",
+        "inquiryForwardToEmpty": "Ohne Adresse werden Anfragen nur markiert, nicht weitergeleitet.",
+        "inquiryMinConfidence": "Weiterleiten ab Sicherheit (%)",
+        "inquiryMinConfidenceHint": "Bewusst niedriger als bei „Sonstiges“: eine Mail zu viel im Shop-Postfach schadet weniger als eine übersehene Anfrage."
       },
       "mondu": {
         "title": "Mondu",
@@ -5836,7 +5845,9 @@
       "portal_news_no_text": "Kein Mailtext vorhanden.",
       "portal_news_insert_failed": "Beitrag konnte nicht angelegt werden.",
       "portal_news_page_failed": "Seite konnte nicht in den Shop geschrieben werden.",
-      "portal_news_mailbox_invalid": "Ungültige Postfach-Adresse."
+      "portal_news_mailbox_invalid": "Ungültige Postfach-Adresse.",
+      "email_intake_inquiry_forward_invalid": "Die Adresse für Anfragen aus Verteilpostfächern ist keine gültige E-Mail-Adresse.",
+      "email_intake_inquiry_forward_is_route": "Die Adresse für Anfragen ist selbst ein Verteilpostfach. Bitte das Shop-Postfach oder ein anderes Bestellpostfach eintragen."
     },
     "client": {
       "notModified": "API-Antwort unverändert (304) – bitte Seite neu laden.",
@@ -6832,7 +6843,9 @@
       "invalid_customer_mail_run": "Aussendung unvollständig (Mailart, Vorlage, Absender und Betreff nötig)",
       "failed_to_create_customer_mail_run": "Aussendung konnte nicht angelegt werden",
       "failed_to_load_customer_mail_effect": "Wirkung konnte nicht geladen werden",
-      "beitrag_nicht_gefunden": "Beitrag nicht gefunden"
+      "beitrag_nicht_gefunden": "Beitrag nicht gefunden",
+      "ungultige_adresse_fur_anfragen": "Ungültige Adresse für Anfragen",
+      "die_adresse_fur_anfragen_ist_selbst_ein_verteilpostfach": "Die Adresse für Anfragen ist selbst ein Verteilpostfach"
     }
   },
   "roomPlanner": {

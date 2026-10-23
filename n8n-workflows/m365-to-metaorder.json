@@ -208,7 +208,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Je Postfach: Zielordner aus „suchen“ (value[]) oder „anlegen“ (Ordner direkt).\n// Persönliches Postfach: kein Zielordner (METAorder setzt dort nur Kategorien).\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const mailbox = $('Postfächer einzeln').itemMatching(i).json;\n  if (mailbox.mode === 'personal') {\n    out.push({ json: { ...mailbox, folderId: null }, pairedItem: { item: i } });\n    continue;\n  }\n  const j = items[i].json || {};\n  const folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\n  // Ohne Zielordner (z. B. kein Zugriff auf das Postfach) dieses Postfach auslassen, die anderen laufen weiter\n  if (!folderId) continue;\n  out.push({ json: { ...mailbox, folderId }, pairedItem: { item: i } });\n}\nreturn out;\n"
+        "jsCode": "// Je Postfach: Zielordner aus „suchen“ (value[]) oder „anlegen“ (Ordner direkt).\n// Persönliches und Verteilpostfach: kein Zielordner (METAorder setzt dort nur Kategorien, nichts wird verschoben).\nconst out = [];\nconst items = $input.all();\nfor (let i = 0; i < items.length; i++) {\n  const mailbox = $('Postfächer einzeln').itemMatching(i).json;\n  if (mailbox.mode !== 'order') {\n    out.push({ json: { ...mailbox, folderId: null }, pairedItem: { item: i } });\n    continue;\n  }\n  const j = items[i].json || {};\n  const folderId = Array.isArray(j.value) ? (j.value[0] && j.value[0].id) : j.id;\n  // Ohne Zielordner (z. B. kein Zugriff auf das Postfach) dieses Postfach auslassen, die anderen laufen weiter\n  if (!folderId) continue;\n  out.push({ json: { ...mailbox, folderId }, pairedItem: { item: i } });\n}\nreturn out;\n"
       },
       "id": "ordner-id",
       "name": "Ordner-ID",
@@ -835,7 +835,7 @@
           "conditions": [
             {
               "id": "Bestellpostfach?",
-              "leftValue": "={{ $json.mode !== 'personal' }}",
+              "leftValue": "={{ $json.mode === 'order' }}",
               "rightValue": "",
               "operator": {
                 "type": "boolean",
