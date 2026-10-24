@@ -31,7 +31,7 @@ const OPENTRANS_1 = `<?xml version="1.0" encoding="ISO-8859-1"?>
           <PARTY_ID type="supplier_specific">20000042592</PARTY_ID>
           <ADDRESS>
             <NAME>Unite Procurement Deutschland AG</NAME>
-            <CONTACT><CONTACT_NAME>Heike Eichler</CONTACT_NAME></CONTACT>
+            <CONTACT><CONTACT_NAME>Hanna Muster</CONTACT_NAME></CONTACT>
             <STREET>Museumsgasse 4-5</STREET><ZIP>06366</ZIP><CITY>Köthen</CITY><COUNTRY>Deutschland</COUNTRY><COUNTRY_CODED>DE</COUNTRY_CODED>
             <EMAIL>operations@mercateo.com</EMAIL>
           </ADDRESS>
@@ -85,7 +85,7 @@ const OPENTRANS_21 = `<?xml version="1.0" encoding="UTF-8"?>
     <PARTIES>
       <PARTY><bmecat:PARTY_ID type="supplier_specific">11247</bmecat:PARTY_ID><PARTY_ROLE>buyer</PARTY_ROLE>
         <ADDRESS><bmecat:NAME>Brill Gruppe GmbH</bmecat:NAME><bmecat:STREET>Hafenstr. 12</bmecat:STREET><bmecat:ZIP>48529</bmecat:ZIP><bmecat:CITY>Nordhorn</bmecat:CITY><bmecat:COUNTRY_CODED>DE</bmecat:COUNTRY_CODED>
-          <CONTACT_DETAILS><bmecat:FIRST_NAME>Elke</bmecat:FIRST_NAME><bmecat:CONTACT_SURNAME>Romswinkel</bmecat:CONTACT_SURNAME><bmecat:EMAILS><bmecat:EMAIL>elke.romswinkel@brillgruppe.de</bmecat:EMAIL></bmecat:EMAILS></CONTACT_DETAILS>
+          <CONTACT_DETAILS><bmecat:FIRST_NAME>Erika</bmecat:FIRST_NAME><bmecat:CONTACT_SURNAME>Mustermann</bmecat:CONTACT_SURNAME><bmecat:EMAILS><bmecat:EMAIL>erika.mustermann@brillgruppe.de</bmecat:EMAIL></bmecat:EMAILS></CONTACT_DETAILS>
         </ADDRESS></PARTY>
       <PARTY><bmecat:PARTY_ID type="buyer_specific">LAGER-2</bmecat:PARTY_ID><PARTY_ROLE>delivery</PARTY_ROLE>
         <ADDRESS><bmecat:NAME>Brill Lager Süd</bmecat:NAME><bmecat:STREET>Industriestr. 5</bmecat:STREET><bmecat:ZIP>48527</bmecat:ZIP><bmecat:CITY>Nordhorn</bmecat:CITY></ADDRESS></PARTY>
@@ -151,7 +151,7 @@ describe("openTRANS 1.0 (Mercateo)", () => {
     assert.equal(e.buyer.company, "Unite Procurement Deutschland AG");
     assert.equal(e.buyer.customer_number, "20000042592");
     assert.equal(e.buyer.email, "operations@mercateo.com");
-    assert.equal(e.buyer.contact_person, "Heike Eichler");
+    assert.equal(e.buyer.contact_person, "Hanna Muster");
     assert.equal(e.delivery_address.same_as_buyer, false);
     assert.equal(e.delivery_address.company, "Schäfer Logistik GmbH");
     assert.equal(e.delivery_address.street, "Rudolphstraße 1");
@@ -203,8 +203,8 @@ describe("openTRANS 2.1", () => {
     assert.equal(e.document.number, "PO-2026-118");
     assert.equal(e.buyer.company, "Brill Gruppe GmbH");
     assert.equal(e.buyer.customer_number, "11247");
-    assert.equal(e.buyer.contact_person, "Elke Romswinkel");
-    assert.equal(e.buyer.email, "elke.romswinkel@brillgruppe.de");
+    assert.equal(e.buyer.contact_person, "Erika Mustermann");
+    assert.equal(e.buyer.email, "erika.mustermann@brillgruppe.de");
     assert.equal(e.delivery_address.company, "Brill Lager Süd");
     assert.equal(e.line_items[0].position, 10);
     assert.equal(e.line_items[0].quantity, 19);

@@ -6859,7 +6859,8 @@
       "you_don_t_have_access_to_this_offer": "You don't have access to this offer",
       "document_not_found": "Document not found",
       "diesem_benutzer_kann_nur_ein_administrator_einen_integrations_schlussel_zuordnen": "Only an administrator can assign an integration key to this user.",
-      "failed_to_check_ticket_access": "Failed to check ticket access"
+      "failed_to_check_ticket_access": "Failed to check ticket access",
+      "too_many_requests": "Too many requests"
     }
   },
   "roomPlanner": {

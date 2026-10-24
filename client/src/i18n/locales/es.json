@@ -6856,7 +6856,8 @@
       "you_don_t_have_access_to_this_offer": "No tiene acceso a esta oferta",
       "document_not_found": "Documento no encontrado",
       "diesem_benutzer_kann_nur_ein_administrator_einen_integrations_schlussel_zuordnen": "Solo un administrador puede asignar una clave de integración a este usuario.",
-      "failed_to_check_ticket_access": "No se pudo comprobar el acceso al ticket"
+      "failed_to_check_ticket_access": "No se pudo comprobar el acceso al ticket",
+      "too_many_requests": "Demasiadas solicitudes"
     }
   },
   "roomPlanner": {

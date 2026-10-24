@@ -15,6 +15,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth/auth";
 import { storage } from "./storage";
 import { EMBEDDABLE_PATH_RE, embedFrameAncestors } from "./cpq/cpqEmbed";
+import { CPQ_PUBLIC_PATHS, cpqPublicRateLimit } from "./cpq/cpqPublicRateLimit";
 import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
 import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
@@ -85,6 +86,8 @@ if (process.env.NODE_ENV !== "production") {
 
 // Hinter einem Reverse-Proxy (Mittwald, Docker-Setups), der TLS terminiert: X-Forwarded-* vertrauen
 app.set("trust proxy", 1);
+// Kein „X-Powered-By: Express“ (verrät die Server-Technik)
+app.disable("x-powered-by");
 
 declare module 'http' {
   interface IncomingMessage {
@@ -229,6 +232,8 @@ function startSystemLog() {
   // Seed database with initial users
   await seedDatabase(storage);
   
+  // Öffentlicher Regalplaner: Anfragegrenzen je IP (vor den Routen)
+  app.use(CPQ_PUBLIC_PATHS, cpqPublicRateLimit);
   const server = await registerRoutes(app);
 
   // Automatisierungsregeln: Ticket-Ereignisse und zeitgesteuerte Regeln (server/automation)

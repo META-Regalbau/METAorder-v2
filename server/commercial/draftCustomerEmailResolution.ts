@@ -565,7 +565,7 @@ export const EMAIL_DOMAIN_MATCH_MAX_CONFIDENCE = 66;
 /**
  * Letzter Versuch, wenn weder E-Mail noch Firma passen: Konten mit derselben Firmen-Domain.
  * Mercateo (Live 11.10.2026): Mail von operations@mercateo.com, Beleg-Firma „Mercateo Deutschland AG“,
- * im Shop heißt das Konto „Unite Procurement Deutschland AG“ (heike.eichler@mercateo.com). Genau ein
+ * im Shop heißt das Konto „Unite Procurement Deutschland AG“ (hanna.muster@mercateo.com). Genau ein
  * Konto mit der Domain → Vorschlag mit begrenzter Sicherheit; mehrere → nur zur Auswahl.
  * Freemail und eigene Domains zählen nicht.
  */
@@ -962,7 +962,7 @@ export async function resolveShopwareCustomerForDraft(
   // customer.email ist die E-Mail der Bestellung (orderCustomer → Bestätigungsmail). Dafür gilt die
   // Kontaktadresse aus dem Beleg, nicht die Login-Adresse des gefundenen Shopware-Kontos: Bei Zuordnung
   // über Kundennummer/Adresse ist das oft jemand anderes (Brill → wachtmeister@hild-loebbecke.de statt
-  // elke.romswinkel@brillgruppe.de). Die Kontoadresse nur, wenn der Beleg keine E-Mail hergibt.
+  // erika.mustermann@brillgruppe.de). Die Kontoadresse nur, wenn der Beleg keine E-Mail hergibt.
   const extractedLower = extractedEmail.toLowerCase();
   const documentEmail = ordered.find((e) => e === extractedLower) ?? ordered[0] ?? null;
   const orderEmail = documentEmail ?? chosenEmail;

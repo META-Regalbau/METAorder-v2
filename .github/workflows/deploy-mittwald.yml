@@ -41,10 +41,9 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.deploy_only != true)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -68,16 +67,19 @@ jobs:
       image_ref: ${{ steps.meta.outputs.image_ref }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           # ganze Historie: die Versionsnummer ist die Anzahl der Commits
           fetch-depth: 0
 
       - name: Resolve image tag
         id: meta
+        # Eingaben über env statt direkt im Skript (keine Shell-Befehle über den Eingabewert)
+        env:
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
-          if [[ -n "${{ inputs.image_tag }}" ]]; then
-            TAG="${{ inputs.image_tag }}"
+          if [[ -n "$INPUT_IMAGE_TAG" ]]; then
+            TAG="$INPUT_IMAGE_TAG"
           else
             TAG="${GITHUB_SHA::7}"
           fi
@@ -89,17 +91,16 @@ jobs:
           echo "app_commit_date=$(git log -1 --format=%cI)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           context: .
           file: Dockerfile
@@ -133,13 +134,14 @@ jobs:
       AI_MODE: ${{ vars.AI_MODE || 'openai_optional' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Resolve deploy image
         id: deploy
+        env:
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.deploy_only }}" == "true" ]]; then
-            TAG="${{ inputs.image_tag }}"
+            TAG="$INPUT_IMAGE_TAG"
             if [[ -z "$TAG" ]]; then
               echo "deploy_only erfordert image_tag." >&2
               exit 1
@@ -195,7 +197,7 @@ jobs:
 
       - name: Deploy to mStudio
         if: steps.config.outputs.ready == 'true'
-        uses: mittwald/deploy-container-action@v1
+        uses: mittwald/deploy-container-action@bc2fb8ccf6340a04da8a148f99c6eacc1a7b69fa # v1.0.7
         env:
           APP_IMAGE: ${{ steps.deploy.outputs.image_ref }}
         with:

@@ -92,7 +92,7 @@ Der Firmenname steht fast immer mit einer Rechtsform-Endung, am häufigsten:
 - Übernimm den Firmennamen **inklusive** Rechtsform (also „Grohe GmbH",
   nicht nur „Grohe").
 - Wenn die E-Mail-Absender-Domain den Firmen-Slug enthält (z. B.
-  \`thomas.bacher@groheshop.com\` ↔ „Grohe GmbH"), ist das ein starkes
+  \`tim.beispiel@groheshop.com\` ↔ „Grohe GmbH"), ist das ein starkes
   Plausibilitäts-Signal — bevorzuge dann diesen Kandidaten.
 - Übernimm KEINEN Personennamen als Firma (Kontaktperson getrennt halten).
 - Bei mehreren Kandidaten gewinnt der mit klarer Rechtsform-Endung.
