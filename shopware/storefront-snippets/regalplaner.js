@@ -18,7 +18,7 @@ var MetaRegalplaner = (function () {
   'use strict';
 
   var CONFIG = {
-    version: '2',
+    version: '3',
     // Nur der Onlineshop „META Regalbau DE" (gleiche ID im Testshop und im Live-Shop).
     salesChannelIds: ['018ec134507f703b82a76467791e7e61'],
     source: 'metaorder-regalplaner',
@@ -74,10 +74,13 @@ var MetaRegalplaner = (function () {
   }
 
   function addToCart(positions) {
+    // Formular eines früheren Klicks entfernen (es bleibt sonst unsichtbar im DOM)
+    document.querySelectorAll('form.meta-rp__cart').forEach(function (old) { old.remove(); });
     var form = document.createElement('form');
     form.action = '/checkout/line-item/add';
     form.method = 'post';
     form.className = 'meta-rp__cart';
+    form.hidden = true;
     form.setAttribute('data-add-to-cart', 'true');
     hidden(form, 'redirectTo', 'frontend.cart.offcanvas');
     positions.forEach(function (p) {
@@ -90,16 +93,30 @@ var MetaRegalplaner = (function () {
       hidden(form, key + '[removable]', '1');
     });
     document.body.appendChild(form);
-    try {
-      // Shopware-Plugin: Warenkorb im Seitenmenü öffnen, Seite bleibt stehen
-      window.PluginManager.initializePlugin('AddToCart', form);
-      if (typeof form.requestSubmit === 'function') { form.requestSubmit(); return; }
-    } catch (e) {
-      // ohne Plugin unten normal absenden
+
+    // Ohne Shopware-Plugin normal absenden und zum Warenkorb wechseln
+    function submitPlain() {
+      form.removeAttribute('data-add-to-cart');
+      form.querySelector('input[name="redirectTo"]').value = 'frontend.checkout.cart.page';
+      form.submit();
     }
-    form.removeAttribute('data-add-to-cart');
-    form.querySelector('input[name="redirectTo"]').value = 'frontend.checkout.cart.page';
-    form.submit();
+    var manager = window.PluginManager;
+    if (!manager || typeof form.requestSubmit !== 'function') { submitPlain(); return; }
+    // Shopware-Plugin: Warenkorb im Seitenmenü öffnen, Seite bleibt stehen. initializePlugin lädt das Plugin
+    // seit Shopware 6.5 asynchron (Promise) – sofort abgeschickt würde der Browser das Formular normal senden
+    // und den Seitenmenü-Warenkorb als eigene Seite zeigen.
+    var ready;
+    try {
+      ready = manager.initializePlugin('AddToCart', form);
+    } catch (e) {
+      submitPlain();
+      return;
+    }
+    Promise.resolve(ready).then(function () {
+      var attached = typeof manager.getPluginInstanceFromElement !== 'function' || manager.getPluginInstanceFromElement(form, 'AddToCart');
+      if (attached) form.requestSubmit();
+      else submitPlain();
+    }, submitPlain);
   }
 
   /** Unterkante mitlaufender Kopfzeilen (fixed/sticky am oberen Rand), sonst 0. */
