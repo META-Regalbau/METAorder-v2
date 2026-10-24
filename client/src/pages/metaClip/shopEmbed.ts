@@ -24,19 +24,25 @@ export function postCartToShop(shopOrigin: string, cart: ShopCartMessage): void 
   window.parent.postMessage({ source: EMBED_MESSAGE_SOURCE, type: "cart", ...cart }, shopOrigin);
 }
 
-/** Meldet die Inhaltshöhe an die Shop-Seite, solange shopOrigin gesetzt ist. */
+/**
+ * Meldet die Inhaltshöhe an die Shop-Seite, solange shopOrigin gesetzt ist. Gemessen und beobachtet wird das
+ * Wurzel-Element der App (#root), das mit dem Inhalt wächst und schrumpft. Die frühere Messung über
+ * documentElement.scrollHeight ist nie kleiner als der Rahmen selbst: Wurde der Inhalt kürzer (z. B. ohne Rückwand
+ * eine Zeile weniger in der Stückliste), blieb unten eine leere Fläche.
+ */
 export function useReportEmbedHeight(shopOrigin: string | null): void {
   useEffect(() => {
     if (!shopOrigin || typeof ResizeObserver === "undefined") return;
+    const target = document.getElementById("root") ?? document.body;
     let last = 0;
     const send = () => {
-      const height = Math.ceil(document.documentElement.scrollHeight);
-      if (Math.abs(height - last) < 2) return;
+      const height = Math.ceil(target.getBoundingClientRect().height);
+      if (height <= 0 || Math.abs(height - last) < 2) return;
       last = height;
       window.parent.postMessage({ source: EMBED_MESSAGE_SOURCE, type: "height", height }, shopOrigin);
     };
     const observer = new ResizeObserver(send);
-    observer.observe(document.body);
+    observer.observe(target);
     send();
     return () => observer.disconnect();
   }, [shopOrigin]);
