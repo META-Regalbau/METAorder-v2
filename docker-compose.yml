@@ -81,6 +81,9 @@ services:
       # Muss mit dem "CPQ-Handoff-Secret" im MetaClipCpq-Shopware-Plugin (Systemkonfiguration)
       # übereinstimmen — signiert den Übergabe-Token Produktseite → Konfigurator.
       CPQ_HANDOFF_SECRET: ${CPQ_HANDOFF_SECRET:-dev-cpq-handoff-secret-change-me}
+      # Zusätzliche Shop-Adressen, die den Regalplaner (/regalplaner) einbetten dürfen, kommagetrennt,
+      # optional mit Mandant: "https://shop.example.com=<tenantId>" (server/cpq/cpqEmbed.ts)
+      CPQ_EMBED_ORIGINS: ${CPQ_EMBED_ORIGINS:-}
       # Erlaubt die bekannten Dev-Default-Secrets oben nur für diese lokale
       # docker-compose.yml (Testing/Entwicklung). Echte Deployments (z. B.
       # deploy/mittwald/) setzen dies nicht — dort wird bei Default-Secrets
