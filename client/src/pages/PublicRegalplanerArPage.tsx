@@ -61,6 +61,13 @@ export default function PublicRegalplanerArPage() {
   const [canAr, setCanAr] = useState<boolean | null>(null);
   const viewerRef = useRef<ModelViewerElement>(null);
 
+  // Eigener Tab am Handy: Titel statt „METAorder - Order Management“
+  useEffect(() => {
+    const before = document.title;
+    document.title = `${t.title} | META`;
+    return () => { document.title = before; };
+  }, [t.title]);
+
   useEffect(() => {
     if (!config) return;
     let cancelled = false;
