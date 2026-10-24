@@ -82,6 +82,13 @@ export const cpqStorage = {
     return db.select().from(cpqProductMapping).where(filter);
   },
 
+  /** Ein Mapping nur innerhalb des Mandanten (ohne Mandant: wie getProductMappingsBySystem ohne Filter). */
+  async getProductMappingById(id: string, tenantId?: string | null): Promise<CpqProductMapping | undefined> {
+    const filter = tenantId ? and(eq(cpqProductMapping.id, id), eq(cpqProductMapping.tenantId, tenantId)) : eq(cpqProductMapping.id, id);
+    const rows = await db.select().from(cpqProductMapping).where(filter).limit(1);
+    return rows[0];
+  },
+
   async getProductMappingByProductId(shopwareProductId: string, tenantId?: string | null): Promise<CpqProductMapping | undefined> {
     const filter = tenantId ? and(eq(cpqProductMapping.shopwareProductId, shopwareProductId), eq(cpqProductMapping.tenantId, tenantId)) : eq(cpqProductMapping.shopwareProductId, shopwareProductId);
     const rows = await db.select().from(cpqProductMapping).where(filter).limit(1);

@@ -63,6 +63,7 @@ async function resolveCpqOptionsPayload(id: string, tenantId: string | null, ste
 
   let combinations: ClipCombinations | null = null;
   try {
+    if (!(await cpqStorage.getSystem(id, tenantId))) throw new Error("System not found");
     const [componentTypes, mappings] = await Promise.all([
       cpqStorage.getComponentTypesBySystem(id),
       cpqStorage.getProductMappingsBySystem(id, tenantId),
@@ -136,8 +137,9 @@ async function resolveCpqBomPayload(
   tenantId: string | null,
   customerId: string | undefined,
 ) {
+  const system = await cpqStorage.getSystem(systemId, tenantId);
   const [componentTypes, mappings, rules] = await Promise.all([
-    cpqStorage.getComponentTypesBySystem(systemId),
+    system ? cpqStorage.getComponentTypesBySystem(systemId) : Promise.resolve([]),
     cpqStorage.getProductMappingsBySystem(systemId, tenantId),
     cpqStorage.getRulesBySystem(systemId, tenantId),
   ]);
@@ -388,6 +390,8 @@ export function registerCpqRoutes(
   app.get("/api/cpq/systems/:id/components", ra, rv, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      // Bauteiltypen haben keinen Mandanten: das System muss dem eigenen Mandanten gehören
+      if (!(await cpqStorage.getSystem(id, req.tenantId ?? null))) return res.status(404).json({ error: "System not found" });
       const componentTypes = await cpqStorage.getComponentTypesBySystem(id);
       const mappings = await cpqStorage.getProductMappingsBySystem(id, req.tenantId ?? null);
       await ensureCpqProductCacheForTenant(req.tenantId ?? null);
@@ -417,6 +421,7 @@ export function registerCpqRoutes(
   app.get("/api/cpq/product-mappings/:id/geometry", ra, rv, async (req: Request, res: Response) => {
     try {
       const { id: productMappingId } = req.params;
+      if (!(await cpqStorage.getProductMappingById(productMappingId, req.tenantId ?? null))) return res.status(404).json({ error: "Mapping not found" });
       const geometry = await cpqStorage.getGeometryByProductMapping(productMappingId);
       if (!geometry) return res.status(404).json({ error: "No geometry for this mapping" });
       res.json(geometry);
@@ -430,6 +435,7 @@ export function registerCpqRoutes(
   app.put("/api/cpq/product-mappings/:id/geometry", ra, rm, async (req: Request, res: Response) => {
     try {
       const { id: productMappingId } = req.params;
+      if (!(await cpqStorage.getProductMappingById(productMappingId, req.tenantId ?? null))) return res.status(404).json({ error: "Mapping not found" });
       const { origin, anchorPoints, boundingBox, glbAssetUrl, lodLevels } = req.body;
       const geometry = await cpqStorage.upsertGeometryByProductMapping(productMappingId, {
         origin,
@@ -1050,6 +1056,7 @@ export function registerCpqRoutes(
     try {
       const { systemId, name, role, required, sortOrder, icon, attributeSchema } = req.body;
       if (!systemId || !name || !role) return res.status(400).json({ error: "systemId, name and role required" });
+      if (!(await cpqStorage.getSystem(systemId, req.tenantId ?? null))) return res.status(404).json({ error: "System not found" });
       const ct = await cpqStorage.createComponentType({
         systemId,
         name,
