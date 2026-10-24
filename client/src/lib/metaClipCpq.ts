@@ -336,3 +336,32 @@ export function rearAvailable(s: MetaClipState, c: MetaClipCombinations | null):
   if (!c) return true;
   return c.rears.some((r) => r.height === s.hoehe && r.width === s.breite && r.surface === s.surface);
 }
+
+// ---- Konfigurations-Code lesen (AR-Seite, QR-Code) ----
+
+const CONFIG_CODE_RE = /^CLIP(-S3)?-(\d{3,4})-(\d{3,4})-(\d{3})-(\d{1,2})F(\d{1,2})-(\d{2,4})-([LV])-(RW|NR)$/;
+
+/** Gegenstück zu buildConfigCode; null bei unbekanntem oder unplausiblem Code. */
+export function parseConfigCode(code: string | null | undefined): Pick<MetaClipState, "rahmen" | "hoehe" | "breite" | "tiefe" | "felder" | "boeden" | "last" | "surface" | "rear"> | null {
+  const m = CONFIG_CODE_RE.exec((code ?? "").trim().toUpperCase());
+  if (!m) return null;
+  const s = {
+    rahmen: (m[1] ? "s3" : "clinch") as FrameVariant,
+    hoehe: Number(m[2]),
+    breite: Number(m[3]),
+    tiefe: Number(m[4]),
+    felder: Number(m[5]),
+    boeden: Number(m[6]),
+    last: Number(m[7]),
+    surface: (m[8] === "L" ? "lackiert" : "verzinkt") as Surface,
+    rear: m[9] === "RW",
+  };
+  const ok = s.hoehe >= 1000 && s.hoehe <= 4000 && s.breite >= 500 && s.breite <= 2000 && s.tiefe >= 200
+    && s.felder >= 1 && s.felder <= 20 && s.boeden >= 1 && s.boeden <= 20;
+  return ok ? s : null;
+}
+
+/** Adresse der AR-Seite für eine Konfiguration (Knopf am Handy, QR-Code am Desktop). */
+export function arPageUrl(origin: string, s: MetaClipState): string {
+  return `${origin}/regalplaner/ar?rp=${encodeURIComponent(buildConfigCode(s))}&lang=${s.lang}`;
+}

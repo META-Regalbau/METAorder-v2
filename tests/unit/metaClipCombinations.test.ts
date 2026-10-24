@@ -10,6 +10,8 @@ import {
   snapToCatalog,
   toConfigContext,
   toCpqCoreInput,
+  parseConfigCode,
+  arPageUrl,
   type MetaClipCombinations,
 } from "../../client/src/lib/metaClipCpq";
 
@@ -77,5 +79,28 @@ describe("Regalplaner: Kombinationen aus dem Katalog", () => {
     expect(buildTuples(null)).toEqual([]);
     expect(snapToCatalog(start, { breite: 1300 }, [])).toMatchObject({ breite: 1300 });
     expect(isChoiceAvailable(start, "breite", 1300, [])).toBe(true);
+  });
+});
+
+describe("Regalplaner: Konfigurations-Code für die AR-Seite", () => {
+  it("liest den Code zurück, den buildConfigCode schreibt", () => {
+    const s = { ...start, rahmen: "s3" as const, felder: 3, boeden: 6, last: 330, surface: "lackiert" as const, rear: true };
+    expect(parseConfigCode(buildConfigCode(s))).toEqual({
+      rahmen: "s3", hoehe: 2000, breite: 1000, tiefe: 500, felder: 3, boeden: 6, last: 330, surface: "lackiert", rear: true,
+    });
+    expect(parseConfigCode("CLIP-2500-1300-400-2F5-230-V-NR")).toMatchObject({ rahmen: "clinch", hoehe: 2500, breite: 1300, rear: false });
+  });
+
+  it("lehnt Unbekanntes und Unplausibles ab", () => {
+    expect(parseConfigCode("")).toBeNull();
+    expect(parseConfigCode("MULTIPAL-2500-1000-500-2F5-230-V-NR")).toBeNull();
+    expect(parseConfigCode("CLIP-2500-1000-500-0F5-230-V-NR")).toBeNull();
+    expect(parseConfigCode("CLIP-9999-1000-500-2F5-230-V-NR")).toBeNull();
+  });
+
+  it("baut die Adresse der AR-Seite", () => {
+    expect(arPageUrl("https://metaorder.example", { ...start, felder: 2, boeden: 5 })).toBe(
+      "https://metaorder.example/regalplaner/ar?rp=CLIP-2000-1000-500-2F5-230-V-NR&lang=de",
+    );
   });
 });

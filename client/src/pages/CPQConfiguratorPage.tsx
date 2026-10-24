@@ -26,6 +26,7 @@ import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 // rationale. Exact/unscaled only at the reference size (1000×500mm,
 // 2000/2500mm height); scaled elsewhere, but always the real assembly.
 const MetaClipRegalAssembly = lazy(() => import("./metaClip/MetaClipRegalAssembly"));
+const RegalArShare = lazy(() => import("./metaClip/RegalArShare"));
 import {
   DEFAULT_STATE,
   toConfigContext,
@@ -99,6 +100,9 @@ const L = {
     guestNoteShop: "Preise ohne Anmeldung: Katalogpreis netto. Ihren Händler- oder Kundenpreis berechnet der Warenkorb, sobald Sie im Shop angemeldet sind.",
     cartSent: "✓ Wird in den Warenkorb gelegt …",
     cartDirect: "Den Regalplaner bitte über den Shop öffnen, um die Stückliste in den Warenkorb zu legen.",
+    arPhone: "In meinem Raum ansehen (AR)", arDesktop: "Auf dem Handy in AR ansehen", arClose: "QR-Code schließen",
+    arQrHint: "QR-Code mit der Handy-Kamera scannen. Das Regal erscheint in Originalgröße in Ihrem Raum.",
+    arOpenLink: "AR-Ansicht hier öffnen",
   },
   en: {
     crumb1: "Shelving systems", crumb2: "Boltless shelving", viewLabel: "3D view",
@@ -142,6 +146,9 @@ const L = {
     guestNoteShop: "Prices without sign-in: catalogue price, net. Your dealer or customer price is calculated in the cart once you are signed in on the shop.",
     cartSent: "✓ Adding to cart …",
     cartDirect: "Please open the shelf planner from the shop to add the bill of materials to your cart.",
+    arPhone: "View in my room (AR)", arDesktop: "View in AR on your phone", arClose: "Close QR code",
+    arQrHint: "Scan the QR code with your phone camera. The shelving appears at actual size in your room.",
+    arOpenLink: "Open AR view here",
   },
 } as const;
 
@@ -566,6 +573,9 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
               <div className="view-caption">{t.views[state.view]} · {nf(laenge)} × {nf(state.hoehe)} × {state.tiefe} {t.mm}</div>
               <div className="view-hint">{isRegalAssemblySupported(state) ? "3D · echter Aufbau" : "3D · echter Aufbau (skaliert)"}</div>
             </div>
+            <Suspense fallback={null}>
+              <RegalArShare state={effectiveState} t={t} />
+            </Suspense>
             <div className="dims">
               {[[t.dim[0], `${nf(laenge)} ${t.mm}`], [t.dim[1], `${nf(state.hoehe)} ${t.mm}`], [t.dim[2], `${state.tiefe} ${t.mm}`], [t.dim[3], String(state.felder)]].map(([k, v], i) => (
                 <div className="cell" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>

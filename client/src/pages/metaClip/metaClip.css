@@ -99,6 +99,14 @@
   .mclip.embed .stage { min-height: 600px; }
   .mclip.embed .viewport { min-height: 440px; }
 }
+/* AR-Ansicht: Knopf (Handy) bzw. QR-Code (Desktop) unter der 3D-Ansicht, siehe RegalArShare.tsx */
+.mclip .ar-share { display: flex; flex-direction: column; gap: 12px; }
+.mclip .ar-qr { display: flex; gap: 16px; align-items: center; padding: 12px; background: var(--meta-white); border: 1px solid var(--meta-steel); }
+.mclip .ar-qr-code { flex: 0 0 140px; width: 140px; height: 140px; }
+.mclip .ar-qr-code svg { display: block; width: 100%; height: 100%; }
+.mclip .ar-qr-text { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: var(--fg-2); }
+.mclip .ar-qr-text a { color: var(--meta-red); font-weight: 700; }
+
 /* 3D-Ansicht bleibt beim Scrollen der Einstellungen stehen (Desktop). Eingebettet scrollt die Shop-Seite,
    nicht das iframe – dort schiebt metaClip/shopEmbed.ts die Ansicht per transform mit. */
 @media (min-width: 901px) {
