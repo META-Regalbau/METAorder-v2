@@ -24,7 +24,7 @@ async function main() {
 
   const heuristic = pickCompanyFromTextSources({
     sources: [{ source: "primary", text }],
-    emailAddresses: ["michael.schmidleithner@ewth.at"],
+    emailAddresses: ["max.mustermann@ewth.at"],
   });
   assert.ok(heuristic.top, "LinkedIn/Impressum should yield company candidate");
   assert.equal(heuristic.top!.display, "EWTH GmbH");
@@ -36,7 +36,7 @@ async function main() {
   );
 
   const extractedData: Record<string, unknown> = {
-    customer: { email: "michael.schmidleithner@ewth.at" },
+    customer: { email: "max.mustermann@ewth.at" },
     billingAddress: {},
     lineItems: [
       { quantity: 1, extractedProductName: "4026212259957", extractedProductNumber: "4026212259957" },
@@ -48,7 +48,7 @@ async function main() {
   enrichExtractedDataWithCompanyHeuristic({
     extractedData,
     primaryDocumentText: text,
-    senderEmailAddress: "michael.schmidleithner@ewth.at",
+    senderEmailAddress: "max.mustermann@ewth.at",
   });
 
   const cust = extractedData.customer as Record<string, string>;
@@ -57,7 +57,7 @@ async function main() {
   assert.equal(bill.company, "EWTH GmbH");
   assert.equal(bill.city, "Taiskirchen im Innkreis");
   assert.equal(cust.firstName, "Michael");
-  assert.equal(cust.lastName, "Schmidleithner");
+  assert.equal(cust.lastName, "Mustermann");
 
   runCommercialExtractionNormalizeSteps(extractedData, { kind: "offer", timings: {} });
   const items = extractedData.lineItems as Array<{ extractedProductName: string; extractedProductNumber?: string }>;

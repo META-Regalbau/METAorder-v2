@@ -6854,7 +6854,8 @@
       "regalplaner_konnte_nicht_gestartet_werden": "Shelf planner could not be started",
       "abgleich_fehlgeschlagen": "Sync failed",
       "invalid_order_id": "Invalid order id",
-      "invalid_document_id": "Invalid document id"
+      "invalid_document_id": "Invalid document id",
+      "too_many_requests": "Too many requests"
     }
   },
   "roomPlanner": {

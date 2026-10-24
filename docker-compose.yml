@@ -70,7 +70,10 @@ services:
         APP_COMMIT: ${APP_COMMIT:-}
         APP_COMMIT_DATE: ${APP_COMMIT_DATE:-}
     ports:
-      - "${HOST_PORT:-5001}:5000"
+      # Nur auf dem eigenen Rechner (127.0.0.1): Die lokale App hält Shop-Zugangsdaten, Start-Passwörter aus der
+      # README gelten bis zur Änderung. Für Tests vom Handy den Proxy unten (Profil https) starten oder
+      # ausnahmsweise HOST_BIND=0.0.0.0 setzen.
+      - "${HOST_BIND:-127.0.0.1}:${HOST_PORT:-5001}:5000"
     environment:
       DATABASE_URL: postgresql://metaorder:metaorder@db:5432/metaorder
       SESSION_SECRET: ${SESSION_SECRET:-bitte-in-produktion-setzen}
@@ -179,6 +182,8 @@ services:
   #   ./scripts/local-https-certs.sh          # Zertifikat erzeugen (einmalig)
   #   docker compose --profile https up -d proxy
   # Danach am iPhone: https://<LAN-IP>:5443
+  # Achtung: Der Proxy macht die App im ganzen WLAN erreichbar. Nach dem Test wieder stoppen
+  #   docker compose --profile https stop proxy
   proxy:
     image: caddy:2-alpine
     profiles: ["https"]

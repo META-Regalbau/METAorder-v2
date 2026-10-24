@@ -27,7 +27,7 @@ describe("CompanyNameHeuristics", () => {
 
   // --- 1. GROHE-Footer (das konkrete Beispiel des Nutzers) ---
   it("GROHE footer + domain match", () => {
-    const emailContext = `Von: Thomas Bacher
+    const emailContext = `Von: Tim Beispiel
 Gesendet: Montag, 16. Februar 2026 08:47
 An: Pamela Köck
 Betreff: [External] Angebotsanfrage AL - 2026 - 352
@@ -36,13 +36,13 @@ Hallo Frau Köck,
 Können Sie uns da bitte ein Angebot zukommen lassen.
 Es geht nicht im Kalkulator zu machen.
 Mit freundlichen Grüßen,
-Thomas Bacher
+Tim Beispiel
 
-Thomas Bacher
+Tim Beispiel
 Einkauf - Werkzeuge
 
 +39.0474.547221
-Thomas.Bacher@groheshop.com
+Tim.Beispiel@groheshop.com
 
 www.groheshop.com
 Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
@@ -60,7 +60,7 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
   // --- 2. Domain-Slug-Extraktion ---
   it("domain slug extraction (skipping generic providers)", () => {
     const slugs = extractDomainSlugsFromTextLike(
-      "Bitte an info@grohegmbh.de und thomas.bacher@groheshop.com cc max@gmail.com"
+      "Bitte an info@grohegmbh.de und tim.beispiel@groheshop.com cc max@gmail.com"
     );
     assert(slugs.includes("grohegmbh"), `domain slugs: erwarte 'grohegmbh' in ${JSON.stringify(slugs)}`);
     assert(slugs.includes("groheshop"), `domain slugs: erwarte 'groheshop' in ${JSON.stringify(slugs)}`);
@@ -152,7 +152,7 @@ Tagebuch der Bestellung vom 12.03.`;
     enrichExtractedDataWithCompanyHeuristic({
       extractedData,
       emailContext: `Mit freundlichen Grüßen,
-Thomas Bacher
+Tim Beispiel
 Grohe GmbH, Mahlstraße 11, 39031 Bruneck`,
     });
     const cust = extractedData.customer as Record<string, string>;
@@ -168,16 +168,16 @@ Grohe GmbH, Mahlstraße 11, 39031 Bruneck`,
   // --- 10. Subagent: leere Felder werden befüllt + Trace landet in extractedData ---
   it("fill empty + trace persisted on extractedData", () => {
     const extractedData: Record<string, unknown> = {
-      customer: { firstName: "Thomas", lastName: "Bacher" },
+      customer: { firstName: "Tim", lastName: "Beispiel" },
       billingAddress: { city: "Bruneck" },
     };
     const trace = enrichExtractedDataWithCompanyHeuristic({
       extractedData,
       emailContext: `Mit freundlichen Grüßen,
-Thomas Bacher
+Tim Beispiel
 Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)
-Thomas.Bacher@groheshop.com`,
-      senderEmailAddress: "Thomas.Bacher@groheshop.com",
+Tim.Beispiel@groheshop.com`,
+      senderEmailAddress: "Tim.Beispiel@groheshop.com",
     });
     const cust = extractedData.customer as Record<string, string>;
     const bill = extractedData.billingAddress as Record<string, string>;
@@ -278,21 +278,21 @@ EAN 4026212123456`
 
   // --- 16. extractEmails ---
   it("extractEmails", () => {
-    const emails = extractEmails("Kontakt: thomas.bacher@groheshop.com oder info@example.it");
-    assert(emails.includes("thomas.bacher@groheshop.com"), "emails: thomas.bacher@groheshop.com");
+    const emails = extractEmails("Kontakt: tim.beispiel@groheshop.com oder info@example.it");
+    assert(emails.includes("tim.beispiel@groheshop.com"), "emails: tim.beispiel@groheshop.com");
     assert(emails.includes("info@example.it"), "emails: info@example.it");
   });
 
   // --- 17. GROHE Komplettblock: alle Adressfelder aus dem Footer-Beispiel ---
   it("GROHE full address block (street, zip, city, country, phone, email)", () => {
     const emailContext = `Mit freundlichen Grüßen,
-Thomas Bacher
+Tim Beispiel
 
-Thomas Bacher
+Tim Beispiel
 Einkauf - Werkzeuge
 
 +39.0474.547221
-Thomas.Bacher@groheshop.com
+Tim.Beispiel@groheshop.com
 
 www.groheshop.com
 Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
@@ -301,7 +301,7 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
     enrichExtractedDataWithCompanyHeuristic({
       extractedData,
       emailContext,
-      senderEmailAddress: "Thomas.Bacher@groheshop.com",
+      senderEmailAddress: "Tim.Beispiel@groheshop.com",
     });
     const bill = extractedData.billingAddress as Record<string, string>;
     const cust = extractedData.customer as Record<string, string>;
@@ -310,7 +310,7 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
     assertEq(bill.zipCode, "39031", "GROHE-Block: zipCode");
     assertEq(bill.city, "Bruneck (BZ)", "GROHE-Block: city");
     assertEq(bill.country, "IT", "GROHE-Block: country");
-    assertEq(cust.email, "Thomas.Bacher@groheshop.com", "GROHE-Block: email");
+    assertEq(cust.email, "Tim.Beispiel@groheshop.com", "GROHE-Block: email");
     assert(typeof cust.phone === "string" && cust.phone.includes("+39"), `GROHE-Block: phone enthält +39, war '${cust.phone}'`);
     // Tokens müssen für Line-Item-Schutz gesammelt sein
     const trace = (extractedData as Record<string, unknown>).companyNameHeuristic as {
@@ -339,15 +339,15 @@ Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)`;
       lineItems: [
         { extractedProductName: "Schraube M8 verzinkt", quantity: 100 },
         { extractedProductName: "Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)", quantity: 1 },
-        { extractedProductName: "Thomas.Bacher@groheshop.com", quantity: 1 },
+        { extractedProductName: "Tim.Beispiel@groheshop.com", quantity: 1 },
       ],
     };
     enrichExtractedDataWithCompanyHeuristic({
       extractedData,
       emailContext: `Mit freundlichen Grüßen,
-Thomas Bacher
+Tim Beispiel
 Grohe GmbH, J.-G.-Mahlstraße 11, I-39031 Bruneck (BZ)
-Thomas.Bacher@groheshop.com`,
+Tim.Beispiel@groheshop.com`,
     });
     runCommercialExtractionNormalizeSteps(extractedData, { kind: "offer", timings: {} });
     const items = extractedData.lineItems as Array<{ extractedProductName: string }>;

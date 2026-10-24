@@ -22,7 +22,7 @@ describe("EmailForwardUnwrap", () => {
     "",
     "anbei eine Bestellung",
     "",
-    "Von: Behnke, Stefan <SBehnke@blumenbecker.com<mailto:SBehnke@blumenbecker.com>>",
+    "Von: Muster, Sven <SMuster@blumenbecker.com<mailto:SMuster@blumenbecker.com>>",
     "Gesendet: Mittwoch, 26. August 2026 15:35",
     "An: Patrick Aetzler <PAetzler@meta-online.com<mailto:PAetzler@meta-online.com>>",
     "Betreff: WG: [External] Einkaufsbeleg EB26068068 für Lieferantennummer",
@@ -30,7 +30,7 @@ describe("EmailForwardUnwrap", () => {
     "Sehr geehrte Damen und Herren,",
     "",
     "Bitte öffnen Sie das anliegende Dokument.",
-    "i.A. Stefan Behnke",
+    "i.A. Sven Muster",
   ].join("\n");
 
   it("doppelte interne Weiterleitung → ursprüngliche Kundenmail", () => {
@@ -40,8 +40,8 @@ describe("EmailForwardUnwrap", () => {
       body: DOUBLE_FORWARD,
     });
     assert.equal(r.strippedForwardLevels, 2);
-    assert.equal(r.fromEmail, "sbehnke@blumenbecker.com");
-    assert.equal(r.from, "Behnke, Stefan <SBehnke@blumenbecker.com>");
+    assert.equal(r.fromEmail, "smuster@blumenbecker.com");
+    assert.equal(r.from, "Muster, Sven <SMuster@blumenbecker.com>");
     assert.equal(r.subject, "Einkaufsbeleg EB26068068 für Lieferantennummer");
     assert.ok(r.body.startsWith("Sehr geehrte Damen und Herren"), r.body.slice(0, 40));
     assert.ok(!/Justine|Moin|PAetzler|wie besprochen/i.test(r.body), "Weiterleitungsnotizen dürfen nicht im Text bleiben");

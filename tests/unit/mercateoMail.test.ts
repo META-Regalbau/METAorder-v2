@@ -60,7 +60,7 @@ describe("Umlaute reparieren", () => {
 });
 
 describe("Kunde über die Mail-Domain", () => {
-  const unite = { id: "unite", company: "Unite Procurement Deutschland AG", email: "heike.eichler@mercateo.com", customerNumber: "20000042592" };
+  const unite = { id: "unite", company: "Unite Procurement Deutschland AG", email: "hanna.muster@mercateo.com", customerNumber: "20000042592" };
   const shop = (hits: Array<typeof unite>) => ({ searchCustomers: async () => hits });
 
   it("genau ein Konto mit der Domain: Vorschlag mit begrenzter Sicherheit", async () => {
@@ -115,7 +115,7 @@ describe("Vorprüfung: tolerante KI-Antwort", () => {
 describe("Kundennummer aus dem Beleg trotz anderer PLZ", () => {
   it("Mercateo druckt 06354, im Shop steht 6366 Köthen: Ort entscheidet", async () => {
     assert.equal(normZip("06366"), normZip("6366"));
-    const unite = { id: "unite", company: "Unite Procurement Deutschland AG", email: "heike.eichler@mercateo.com", customerNumber: "20000042592", zipCode: "6366", city: "Köthen" };
+    const unite = { id: "unite", company: "Unite Procurement Deutschland AG", email: "hanna.muster@mercateo.com", customerNumber: "20000042592", zipCode: "6366", city: "Köthen" };
     const client = {
       findCustomerByEmail: async () => null,
       findCustomersByEmail: async () => [],

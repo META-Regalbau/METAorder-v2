@@ -54,9 +54,9 @@ describe("Kontakte bereinigen", () => {
   });
 
   it("echter Kundenkontakt bleibt", () => {
-    const data: Record<string, any> = { customer: { firstName: "Heike", lastName: "Eichler", email: "heike.eichler@mercateo.com" } };
+    const data: Record<string, any> = { customer: { firstName: "Hanna", lastName: "Muster", email: "hanna.muster@mercateo.com" } };
     assert.deepEqual(stripInternalContacts(data, [MAIL]), []);
-    assert.equal(data.customer.lastName, "Eichler");
+    assert.equal(data.customer.lastName, "Muster");
   });
 });
 

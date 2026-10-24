@@ -6851,7 +6851,8 @@
       "regalplaner_konnte_nicht_gestartet_werden": "Regalplaner konnte nicht gestartet werden",
       "abgleich_fehlgeschlagen": "Abgleich fehlgeschlagen",
       "invalid_order_id": "Ungültige Bestell-ID",
-      "invalid_document_id": "Ungültige Dokument-ID"
+      "invalid_document_id": "Ungültige Dokument-ID",
+      "too_many_requests": "Zu viele Anfragen – bitte kurz warten"
     }
   },
   "roomPlanner": {

@@ -12,3 +12,11 @@ docker.env
 coverage
 .vscode
 .idea
+# Lokale Entwicklungs-Zertifikate (Handy-Tests über Caddy) und Arbeitsdateien im Projektordner:
+# Protokolle der Shop-Skripte, Excel-Auswertungen, Entwürfe – gehören nicht ins Image
+deploy/local-https/certs
+/*-Protokoll-*.json
+/*-Sicherung-*.json
+/*.xlsx
+/*.csv
+/Entwurf-*.html

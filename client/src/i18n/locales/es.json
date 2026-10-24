@@ -6851,7 +6851,8 @@
       "regalplaner_konnte_nicht_gestartet_werden": "No se pudo iniciar el planificador de estanterías",
       "abgleich_fehlgeschlagen": "La sincronización ha fallado",
       "invalid_order_id": "ID de pedido no válido",
-      "invalid_document_id": "ID de documento no válido"
+      "invalid_document_id": "ID de documento no válido",
+      "too_many_requests": "Demasiadas solicitudes"
     }
   },
   "roomPlanner": {
