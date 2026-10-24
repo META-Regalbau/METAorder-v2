@@ -7,8 +7,13 @@
  * (GET /api/cpq/public/guest-token). Gäste sehen Katalogpreise; „In den Warenkorb“ schickt die
  * Stückliste per postMessage an die Shop-Seite, die sie in der Sitzung des Besuchers in den Warenkorb
  * legt – dort gelten dann Händler- und Kundenpreise (metaClip/shopEmbed.ts).
+ *
+ * Von einer Produktseite aus hängt der Shop zusätzlich `rp=<Konfigurations-Code>` an (Maße, Felder, Ebenen,
+ * Fachlast, Oberfläche des Artikels); der Planer startet dann mit diesen Werten.
  */
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { parseConfigCode } from "@/lib/metaClipCpq";
 import CPQConfiguratorPage from "./CPQConfiguratorPage";
 
 function shopOriginFromQuery(): string | null {
@@ -22,6 +27,7 @@ function shopOriginFromQuery(): string | null {
 
 export default function PublicRegalplanerPage() {
   const shop = shopOriginFromQuery();
+  const initialState = useMemo(() => parseConfigCode(new URLSearchParams(window.location.search).get("rp")), []);
   const { data, isLoading, error } = useQuery({
     queryKey: ["cpq-guest-token", shop],
     queryFn: async (): Promise<{ token: string }> => {
@@ -57,6 +63,7 @@ export default function PublicRegalplanerPage() {
   return (
     <CPQConfiguratorPage
       customerMode={{ handoffToken: data.token, customerId: null, customerName: null, isPortalCustomer: false, embedShopOrigin: shop }}
+      initialState={initialState}
     />
   );
 }

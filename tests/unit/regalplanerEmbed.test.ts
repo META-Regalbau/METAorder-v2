@@ -12,6 +12,7 @@ vi.mock("../../server/storage", () => ({
   },
 }));
 
+import { parseConfigCode } from "../../client/src/lib/metaClipCpq";
 import { EMBEDDABLE_PATH_RE, embedFrameAncestors, normalizeOrigin, resetEmbedCache, resolveGuestTenantForShop } from "../../server/cpq/cpqEmbed";
 
 // Das Storefront-Skript ist reines Browser-JS ohne Module; ohne window liefert es nur die reinen Helfer.
@@ -43,6 +44,25 @@ describe("Regalplaner-Baustein im Shop", () => {
     expect(rp.cartPositions({ items: [{ id: ID, quantity: 0 }] })).toBeNull();
     expect(rp.cartPositions({ items: [{ id: ID, quantity: 1000 }] })).toBeNull();
     expect(rp.cartPositions({ items: [] })).toBeNull();
+  });
+
+  it("liest die Maße einer CLIP-Produktseite als Konfigurations-Code (Grundregal 1 Feld, Anbauregal 2)", () => {
+    const anbau = rp.productConfigCode("META CLIP S3 | Fachbodenregal | Anbauregal | 2000 x 1500 x 600 mm | Fachlast 200 kg | 4 Ebenen | verzinkt");
+    expect(anbau).toBe("CLIP-S3-2000-1500-600-2F4-200-V-NR");
+    expect(parseConfigCode(anbau)).toEqual({ rahmen: "s3", hoehe: 2000, breite: 1500, tiefe: 600, felder: 2, boeden: 4, last: 200, surface: "verzinkt", rear: false });
+    expect(rp.productConfigCode("META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 300 mm | Fachlast 230 kg | 5 Ebenen | RAL 7035"))
+      .toBe("CLIP-2000-1000-300-1F5-230-L-NR");
+    expect(rp.productConfigCode("META CLIP S3 | Fachbodenregal | Anbauregal | 2000 x 1000 x 600 mm | Fachlast 230 kg | 5 Ebenen | Längsriegel | verzinkt"))
+      .toBe("CLIP-S3-2000-1000-600-2F5-230-V-NR");
+  });
+
+  it("zeigt den Knopf nicht bei Artikeln, die der Planer nicht abbildet", () => {
+    expect(rp.productConfigCode("META CLIP | Fachbodenregal | Anbauregal | 2500 x 1000 x 400 mm | Fachlast 150 kg | 6 Ebenen | RAL 9005")).toBeNull();
+    expect(rp.productConfigCode("META CLIP SET | Fachbodenregal | Anbauregal | 2000 x 1000 x 500 mm | Fachlast 150 kg | 4 Ebenen | verzinkt")).toBeNull();
+    expect(rp.productConfigCode("META CLIP | Fachbodenregal | Doppel-Grundregal | 2000 x 1000 x 600 mm | Fachlast 230 kg | 5 Ebenen | verzinkt")).toBeNull();
+    expect(rp.productConfigCode("META CLIP | Fachbodenregal | Grundregal | 2000 x 1000 x 600 mm | Fachlast 230 kg | 5 Ebenen | doppelseitig | verzinkt")).toBeNull();
+    expect(rp.productConfigCode("META MULTIPAL | Palettenregal | Grundregal | 3000 x 2700 x 1100 mm | verzinkt")).toBeNull();
+    expect(rp.productConfigCode("")).toBeNull();
   });
 });
 

@@ -288,11 +288,16 @@ function schematic(s: MetaClipState): string {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${parts.join("")}</svg>`;
 }
 
-export default function CPQConfiguratorPage({ customerMode }: { customerMode?: CpqCustomerMode } = {}) {
+export default function CPQConfiguratorPage({ customerMode, initialState }: {
+  customerMode?: CpqCustomerMode;
+  /** Startwerte, z. B. die Maße eines Artikels (Produktseite im Shop, PublicRegalplanerPage); auch Ziel von „Zurücksetzen“. */
+  initialState?: Partial<MetaClipState> | null;
+} = {}) {
   const { i18n } = useTranslation();
   const { toast } = useToast();
+  const startState = useMemo<MetaClipState>(() => ({ ...DEFAULT_STATE, ...initialState }), [initialState]);
   const [state, setState] = useState<MetaClipState>({
-    ...DEFAULT_STATE,
+    ...startState,
     lang: i18n.language?.startsWith("en") ? "en" : "de",
   });
   const [added, setAdded] = useState(false);
@@ -743,7 +748,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                   </button>
                 )}
                 <button type="button" className="btn btn-md btn-tertiary"
-                  onClick={() => { setAdded(false); setState((s) => reconcile({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode, showDims: s.showDims })); }}>
+                  onClick={() => { setAdded(false); setState((s) => reconcile({ ...startState, lang: s.lang, mode: s.mode, showDims: s.showDims })); }}>
                   {t.reset}
                 </button>
               </div>
