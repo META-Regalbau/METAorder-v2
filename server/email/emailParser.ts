@@ -96,7 +96,9 @@ export function htmlToPlainText(html: string): string {
  * Parst .eml Dateien (Standard E-Mail Format)
  */
 export async function parseEmlFile(buffer: Buffer): Promise<ParsedEmailResult> {
-  const parsed: ParsedMail = await simpleParser(normalizeEmlBufferForParsing(buffer));
+  // cid:-Verweise behalten: Ohne die Option ersetzt mailparser sie durch data:-URIs (jedes
+  // Inline-Bild noch einmal Base64 im HTML), und die Erkennung eingebetteter Bilder sieht nichts.
+  const parsed: ParsedMail = await simpleParser(normalizeEmlBufferForParsing(buffer), { keepCidLinks: true });
 
   const attachments = await filterRelevantAttachments(
     parsed.attachments || []
