@@ -6443,7 +6443,6 @@
       "neues_passwort_muss_mindestens_8_zeichen_haben": "La nueva contraseña debe tener al menos 8 caracteres",
       "no_agreement_pdf_yet": "Aún no hay PDF del acuerdo",
       "no_ai_chat_provider_is_configured_for_this_tenant": "No hay ningún proveedor de chat de IA configurado para este inquilino.",
-      "no_authorization_header": "Falta el encabezado de autorización",
       "no_eligible_orders_for_pick_list": "No hay pedidos aptos para la lista de picking",
       "no_file_uploaded": "No se ha subido ningún archivo",
       "no_files_uploaded": "No se subió ningún archivo",
@@ -6457,7 +6456,6 @@
       "no_shopware_settings_found": "No se encontró la configuración de Shopware",
       "no_staging_batch_found": "No se encontró ningún lote de staging",
       "no_tenants_assigned": "No hay inquilinos asignados",
-      "no_token_found": "No se encontró ningún token",
       "no_valid_order_numbers_provided": "No se han indicado números de pedido válidos",
       "no_zebra_printer_found_is_browser_print_running": "No se encontró ninguna impresora Zebra (¿se está ejecutando Browser Print?)",
       "not_authenticated": "No autenticado",
@@ -6851,7 +6849,9 @@
       "beitrag_nicht_gefunden": "Entrada no encontrada",
       "regalplaner_fur_diesen_shop_nicht_freigeschaltet": "El planificador de estanterías no está activado para esta tienda",
       "regalplaner_konnte_nicht_gestartet_werden": "No se pudo iniciar el planificador de estanterías",
-      "abgleich_fehlgeschlagen": "La sincronización ha fallado"
+      "abgleich_fehlgeschlagen": "La sincronización ha fallado",
+      "invalid_order_id": "ID de pedido no válido",
+      "invalid_document_id": "ID de documento no válido"
     }
   },
   "roomPlanner": {

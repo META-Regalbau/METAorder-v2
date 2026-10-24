@@ -25,7 +25,6 @@ export function isTenantOptionalApiPath(req: { method: string; path: string }): 
   if (m === "GET" && p === "/api/tenants") return true;
   if (m === "POST" && p === "/api/tenants/select") return true;
   if (m === "POST" && p === "/api/tenants") return true;
-  if (m === "GET" && p === "/api/auth/token") return true;
   if (m === "PUT" && p === "/api/profile") return true;
   if (m === "PUT" && p === "/api/profile/password") return true;
   return false;
@@ -492,9 +491,8 @@ export const requireManageProducts = (req: any, res: any, next: any) => {
 };
 
 /** Administrator: Rolle "Administrator" oder Altbenutzer mit role "admin" */
-export function isAdministrator(user: any): boolean {
-  return user?.role === "admin" || user?.roleDetails?.name === "Administrator";
-}
+import { isAdministrator } from "./privilegeGuard";
+export { isAdministrator };
 
 /** Nur Administratoren (z. B. Systemprotokoll) - unabhaengig von einzelnen Rechten */
 export function requireAdministrator(req: any, res: any, next: any) {

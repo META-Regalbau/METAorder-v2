@@ -176,15 +176,6 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Get JWT token from cookie (for SSE initialization)
-  app.get("/api/auth/token", requireAuth, (req, res) => {
-    // Read token from cookie and return it for SSE usage
-    const token = req.cookies?.auth_token;
-    if (!token) {
-      return res.status(401).json({ error: "No token found" });
-    }
-    res.json({ token });
-  });
-
   // Profile management routes
   app.put("/api/profile", requireAuth, requireCsrf, async (req, res) => {
     try {

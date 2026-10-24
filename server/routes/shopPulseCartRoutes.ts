@@ -13,7 +13,7 @@ import { storage } from "../storage";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
 import { getEmailOutboundSettings } from "../email/emailOutbound";
 import { cartSignalSchema, shopPulseCartSettingsSchema, type ShopPulseCartOverview } from "@shared/shopPulseCart";
-import { cartSignalRateOk, verifyCartSignature } from "../shopPulse/cartAlarm";
+import { cartSignalRateOk, isTenantIdHeader, verifyCartSignature } from "../shopPulse/cartAlarm";
 import {
   deleteAllCarts,
   getCartSecret,
@@ -49,8 +49,7 @@ export function registerShopPulseCartRoutes(app: Express): void {
   app.post("/api/public/shop-pulse/cart-signal", async (req: Request, res: Response) => {
     const tenantHeader = req.get("x-meta-tenant")?.trim() ?? "";
     const raw = req.rawBody instanceof Buffer ? req.rawBody : null;
-    if (!tenantHeader || !raw || raw.length > MAX_BODY) return res.status(400).json({ error: "Invalid cart signal" });
-    if (!cartSignalRateOk(tenantHeader)) return res.status(429).json({ error: "Too many cart signals" });
+    if (!isTenantIdHeader(tenantHeader) || !raw || raw.length > MAX_BODY) return res.status(400).json({ error: "Invalid cart signal" });
     try {
       const tenant = await storage.getTenant(tenantHeader).catch(() => undefined);
       const secret = tenant ? await getCartSecret(storage, tenant.id) : null;
@@ -59,6 +58,7 @@ export function registerShopPulseCartRoutes(app: Express): void {
         moduleLog.warn({ tenant: tenantHeader.slice(0, 40), check: tenant ? check : "unknownTenant", ip: req.ip }, "Warenkorb-Signal abgelehnt");
         return res.status(401).json({ error: "Invalid cart signal signature" });
       }
+      if (!cartSignalRateOk(tenant.id)) return res.status(429).json({ error: "Too many cart signals" });
       const parsed = cartSignalSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid cart signal" });
       const now = new Date();

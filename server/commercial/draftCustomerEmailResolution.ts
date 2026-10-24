@@ -77,6 +77,31 @@ function bump(scores: Map<string, number>, email: string, delta: number): void {
 }
 
 /**
+ * Absender der Kundenmail: Kopfzeile, bei interner Weiterleitung der Ursprungsabsender (emailForwardUnwrap.ts).
+ * Adressen im Mailtext kann jeder hineinschreiben – der Absender ist die einzige Adresse, die nicht frei im Inhalt
+ * steht. Er rückt deshalb nach vorn, und ein Konto, das nicht zu ihm passt, wird nie automatisch sicher.
+ */
+export const SENDER_EMAIL_BONUS = 40;
+/** Höchste Sicherheit, wenn das zugeordnete Konto nicht zum Absender passt: nur Vorschlag, keine Automatik */
+export const SENDER_MISMATCH_MAX_CONFIDENCE = 60;
+
+export function normalizeSenderEmail(raw: string | null | undefined): string | null {
+  const email = (raw ?? "").trim().toLowerCase();
+  if (!/^[^\s@<>]+@[^\s@<>]+\.[a-z]{2,}$/i.test(email)) return null;
+  if (isNoreplyLike(email) || isOwnOperatorEmail(email)) return null;
+  return email;
+}
+
+/** Passt das Konto zum Absender? Gleiche Adresse oder gleiche Firmen-Domain (Freemail zählt nicht als Firma). */
+export function accountMatchesSender(accountEmail: string | null | undefined, sender: string): boolean {
+  const account = (accountEmail ?? "").trim().toLowerCase();
+  if (!account) return false;
+  if (account === sender) return true;
+  const domain = sender.split("@")[1] ?? "";
+  return !!domain && !isFreemailDomain(domain) && account.split("@")[1] === domain;
+}
+
+/**
  * Heuristische Scores: Weiterleitungs-Blöcke, Von/From/Absender/Reply-To, Vorkommen im Text.
  */
 export function scoreCustomerEmailCandidatesFromText(text: string, weight: number, scores: Map<string, number>): void {
@@ -117,8 +142,11 @@ export function buildRankedCustomerEmails(params: {
   emailContext?: string;
   siblingPdfExcerpts?: string;
   extractedEmail?: string;
+  /** Absender der Kundenmail (normalizeSenderEmail) */
+  senderEmail?: string | null;
 }): Array<{ email: string; score: number }> {
   const scores = new Map<string, number>();
+  if (params.senderEmail) bump(scores, params.senderEmail, SENDER_EMAIL_BONUS);
 
   if (params.emailContext?.trim()) {
     scoreCustomerEmailCandidatesFromText(params.emailContext, 1, scores);
@@ -187,6 +215,10 @@ export type DraftExtractedCustomer = {
     /** Login-E-Mail des zugeordneten Shopware-Kontos (kann von der Beleg-Kontaktadresse abweichen) */
     shopwareAccountEmail?: string;
     method?: "heuristic" | "llm" | "extracted_only";
+    /** Absender der Kundenmail (für Nachprüfen) */
+    senderEmail?: string;
+    /** Konto passt nicht zum Absender: Sicherheit auf SENDER_MISMATCH_MAX_CONFIDENCE gedeckelt */
+    senderMismatch?: boolean;
   };
   customerMatchConfidence?: number;
   /** true wenn der Shopware-Kunde in dieser Pipeline neu angelegt wurde (Strikt-Regel blockiert dann Auto-Create). */
@@ -688,8 +720,12 @@ export async function resolveShopwareCustomerForDraft(
     customerAutoCreateMinConfidence?: number;
     /** Mindest-Ranking-Score der gewählten E-Mail für Auto-Anlage (Heuristik) */
     minRankedEmailScoreForAutoCreate?: number;
+    /** Absender der Kundenmail (Kopfzeile bzw. Ursprungsabsender bei interner Weiterleitung) */
+    senderEmail?: string | null;
   }
 ): Promise<string | null> {
+  // Beim Nachprüfen eines Entwurfs kommt der Absender aus der ersten Zuordnung
+  const sender = normalizeSenderEmail(options.senderEmail ?? extractedData.customer?.emailResolution?.senderEmail);
   const billingEmailRaw =
     typeof (extractedData.billingAddress as { email?: string } | undefined)?.email === "string"
       ? String((extractedData.billingAddress as { email: string }).email).trim()
@@ -708,6 +744,7 @@ export async function resolveShopwareCustomerForDraft(
     emailContext: options.emailContext,
     siblingPdfExcerpts: options.siblingPdfExcerpts,
     extractedEmail,
+    senderEmail: sender,
   });
 
   if (ranked.length === 0) {
@@ -764,7 +801,7 @@ export async function resolveShopwareCustomerForDraft(
         chosenEmail = ((customer as { email?: string }).email as string)?.trim() || tryEmail;
         // Sicher nur, wenn es die erste Wahl war (Beleg/Absender), die Kontoadresse genau passt
         // und Shopware genau ein Konto mit dieser Adresse kennt
-        if (index === 0 && chosenEmail.toLowerCase() === tryEmail.toLowerCase()) {
+        if (index === 0 && chosenEmail.toLowerCase() === tryEmail.toLowerCase() && (!sender || tryEmail.toLowerCase() === sender)) {
           exactUniqueEmailMatch = accounts.length === 1 && accounts[0].id === customer.id;
         }
         break;
@@ -850,6 +887,14 @@ export async function resolveShopwareCustomerForDraft(
   extractedData.customer.customerMatchConfidence = portalCheck?.switchedTo
     ? Math.min(matchConfidence, PORTAL_SWITCH_MAX_CONFIDENCE)
     : matchConfidence;
+  // Konto passt nicht zum Absender (nur Adressen aus dem Mailtext): Vorschlag, keine Automatik
+  const senderMismatch = Boolean(sender && shopwareCustomerId && !accountMatchesSender(chosenEmail, sender));
+  if (senderMismatch) {
+    extractedData.customer.customerMatchConfidence = Math.min(
+      extractedData.customer.customerMatchConfidence ?? 0,
+      SENDER_MISMATCH_MAX_CONFIDENCE,
+    );
+  }
 
   const createEmailRaw = (chosenEmail ?? ordered[0] ?? "").trim();
   const createEmailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createEmailRaw);
@@ -942,6 +987,8 @@ export async function resolveShopwareCustomerForDraft(
     method,
     ...(exactUniqueEmailMatch ? { exactUniqueAccount: true } : {}),
     ...(emailDomainMatch ? { emailDomainMatch: true } : {}),
+    ...(sender ? { senderEmail: sender } : {}),
+    ...(senderMismatch ? { senderMismatch: true } : {}),
   };
 
   return shopwareCustomerId;

@@ -6446,7 +6446,6 @@
       "neues_passwort_muss_mindestens_8_zeichen_haben": "New password must be at least 8 characters long",
       "no_agreement_pdf_yet": "No agreement PDF yet",
       "no_ai_chat_provider_is_configured_for_this_tenant": "No AI chat provider is configured for this tenant.",
-      "no_authorization_header": "No authorization header",
       "no_eligible_orders_for_pick_list": "No eligible orders for pick list",
       "no_file_uploaded": "No file uploaded",
       "no_files_uploaded": "No files uploaded",
@@ -6460,7 +6459,6 @@
       "no_shopware_settings_found": "No Shopware settings found",
       "no_staging_batch_found": "No staging batch found",
       "no_tenants_assigned": "No tenants assigned",
-      "no_token_found": "No token found",
       "no_valid_order_numbers_provided": "No valid order numbers provided",
       "no_zebra_printer_found_is_browser_print_running": "No Zebra printer found (is Browser Print running?)",
       "not_authenticated": "Not authenticated",
@@ -6854,7 +6852,9 @@
       "beitrag_nicht_gefunden": "Post not found",
       "regalplaner_fur_diesen_shop_nicht_freigeschaltet": "Shelf planner is not enabled for this shop",
       "regalplaner_konnte_nicht_gestartet_werden": "Shelf planner could not be started",
-      "abgleich_fehlgeschlagen": "Sync failed"
+      "abgleich_fehlgeschlagen": "Sync failed",
+      "invalid_order_id": "Invalid order id",
+      "invalid_document_id": "Invalid document id"
     }
   },
   "roomPlanner": {

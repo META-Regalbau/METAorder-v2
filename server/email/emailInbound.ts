@@ -333,6 +333,7 @@ async function processInboundMailAttachments(options: {
         intentDocumentTextPreview,
         primaryContainsEmailBody: false,
         fromDisplayName,
+        senderEmail: unwrapped.fromEmail ?? undefined,
         signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
       }).catch((err) => {
         moduleLog.error({ err }, "[EmailInbound] Commercial agent document processing failed:");
@@ -377,6 +378,7 @@ async function processInboundMailAttachments(options: {
       intentDocumentTextPreview: undefined,
       primaryContainsEmailBody: true,
       fromDisplayName,
+      senderEmail: unwrapped.fromEmail ?? undefined,
       signatureImageBuffers: signatureImageBuffers.length ? signatureImageBuffers : undefined,
     })
       .then(async (result) => {

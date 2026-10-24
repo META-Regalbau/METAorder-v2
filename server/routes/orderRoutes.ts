@@ -24,6 +24,7 @@ import { type InstallmentInvoicePdfInput, generateInstallmentInvoicePdf } from "
 import archiver from "archiver";
 import type { Request, Response, Express } from "express";
 import { logger } from "../lib/logger";
+import { isShopwareId } from "../shopware/safeShopwareUrl";
 
 const moduleLog = logger.child({ component: "routes/orderRoutes" });
 
@@ -778,6 +779,7 @@ export function registerOrderRoutes(app: Express): void {
   });
 
   app.get("/api/orders/:orderId/documents", requireAuth, async (req, res) => {
+    if (!isShopwareId(req.params.orderId)) return res.status(400).json({ error: "Invalid order id" });
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
@@ -795,6 +797,10 @@ export function registerOrderRoutes(app: Express): void {
   });
 
   app.get("/api/orders/:orderId/document/:documentId/:deepLinkCode", requireAuth, async (req, res) => {
+    // Beide Werte landen im Pfad der Shopware-Admin-API (siehe server/shopware/safeShopwareUrl.ts)
+    if (!isShopwareId(req.params.documentId) || !/^[A-Za-z0-9_-]{1,64}$/.test(req.params.deepLinkCode)) {
+      return res.status(400).json({ error: "Invalid document id" });
+    }
     try {
       const settings = await storage.getShopwareSettings();
       if (!settings) {
