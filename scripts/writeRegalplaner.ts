@@ -1,14 +1,14 @@
 /**
  * Spielt den Regalplaner-Baustein in den Shop ein (shopware/storefront-snippets/regalplaner.js + .css): setzt auf
  * der Seite /regalplaner (scripts/writeRegalplanerPage.ts) METAorder als iframe ein und legt die Stückliste aus dem
- * Regalplaner in den Warenkorb. Nach dem Live-Einspielen REGALPLANER_SNIPPET in STOREFRONT_SNIPPETS übernehmen
- * (Shop-Wächter). Ablauf, Protokoll und Rückbau: scripts/lib/storefrontSnippetEntry.ts.
+ * Regalplaner in den Warenkorb. Live seit 24.10.2026 (Protokoll im Repo-Root), der Shop-Wächter prüft ihn mit.
+ * Ablauf, Protokoll und Rückbau: scripts/lib/storefrontSnippetEntry.ts.
  *
  * Aufruf (im App-Container):
  *   NODE_ENV=development npx tsx scripts/writeRegalplaner.ts <tenantId> [--apply] [--live]
  *   NODE_ENV=development npx tsx scripts/writeRegalplaner.ts <tenantId> --revert <protokoll.json> [--live]
  */
-import { REGALPLANER_SNIPPET } from "../server/shopContent/shopEntityIds";
+import { storefrontSnippet } from "../server/shopContent/shopEntityIds";
 import { runStorefrontSnippetScript } from "./lib/storefrontSnippetEntry";
 
-runStorefrontSnippetScript(REGALPLANER_SNIPPET);
+runStorefrontSnippetScript(storefrontSnippet("metaorder-regalplaner"));

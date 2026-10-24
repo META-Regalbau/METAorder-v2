@@ -77,6 +77,14 @@ export const STOREFRONT_SNIPPETS: StorefrontSnippetDef[] = [
     marker: "meta-search-hint",
   },
   {
+    key: "metaorder-regalplaner",
+    name: "METAorder: Regalplaner META CLIP (3D-Konfigurator)",
+    file: "regalplaner",
+    script: "writeRegalplaner.ts",
+    protocolPrefix: "Regalplaner-Protokoll",
+    marker: "meta-rp",
+  },
+  {
     key: "metaorder-exit-intent",
     name: "METAorder: Newsletter-Modal mit Willkommensrabatt (Exit-Intent)",
     file: "exit-intent",
@@ -104,19 +112,6 @@ export const EMAIL_NOTICE_SNIPPET: StorefrontSnippetDef = {
   script: "writeEmailNotice.ts",
   protocolPrefix: "E-Mail-Hinweis-Protokoll",
   marker: "meta-mail-notice",
-};
-
-/**
- * Regalplaner META CLIP auf /regalplaner (iframe auf METAorder, Warenkorb im Shop). Wie EMAIL_NOTICE_SNIPPET
- * erst nach dem Live-Einspielen (scripts/writeRegalplaner.ts) in STOREFRONT_SNIPPETS übernehmen.
- */
-export const REGALPLANER_SNIPPET: StorefrontSnippetDef = {
-  key: "metaorder-regalplaner",
-  name: "METAorder: Regalplaner META CLIP (3D-Konfigurator)",
-  file: "regalplaner",
-  script: "writeRegalplaner.ts",
-  protocolPrefix: "Regalplaner-Protokoll",
-  marker: "meta-rp",
 };
 
 /** Seite /regalplaner (scripts/writeRegalplanerPage.ts): Teil "lp", "cms", "section", "block", "slot" */
