@@ -22,8 +22,10 @@ const ALLOWED: Record<string, number> = {
   "pages/PublicOfferPage.tsx": 9,
   "pages/PublicCpqConfiguratorPage.tsx": 4,
   "pages/PublicRegalplanerPage.tsx": 3,
+  // AR-Seite des Regalplaners: eigenes DE/EN-Textpaket wie der Konfigurator
+  "pages/PublicRegalplanerArPage.tsx": 10,
   // META-CLIP-Konfigurator: eigenes DE/EN-Textpaket nach Design, auch im Shop; Kundensuche gehoert dazu
-  "pages/CPQConfiguratorPage.tsx": 44,
+  "pages/CPQConfiguratorPage.tsx": 49,
   "components/ShopwareCustomerSearch.tsx": 5,
   // Inhalte statt Oberflaeche: Vorlagen fuer Benachrichtigungen (mit {{...}}-Platzhaltern der Regeln)
   // und die Mahn-E-Mail an Kunden

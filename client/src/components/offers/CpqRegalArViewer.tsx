@@ -4,16 +4,13 @@
  * client/src/pages/metaClip/regalAssembly.ts — dieselbe Geometrie wie im
  * Konfigurator und im PDF-Vorschaubild) aus der gespeicherten CPQ-Konfiguration
  * nach, fügt ein helles Bodenraster hinzu (damit es nicht "schwebt") und
- * exportiert das Ergebnis als GLB, das <model-viewer> für die interaktive
- * 3D-Ansicht UND für AR (Android Scene Viewer / WebXR; iOS Quick Look benötigt
- * zusätzlich ein USDZ, das hier nicht erzeugt wird — gleiche Einschränkung wie
- * in OfferLineItemGlbPreview.tsx) verwendet.
+ * exportiert das Ergebnis als GLB (pages/metaClip/regalGlb.ts), das <model-viewer> für
+ * die interaktive 3D-Ansicht UND für AR verwendet (Android WebXR; iPhone Quick Look mit
+ * dem USDZ, das model-viewer selbst aus dem GLB erzeugt).
  */
 import { useEffect, useState } from "react";
-import * as THREE from "three";
-import { GLTFExporter } from "three-stdlib";
 import "@google/model-viewer";
-import { buildRegalGroup, loadRegalTemplates, type HeightKey } from "@/pages/metaClip/regalAssembly";
+import { buildRegalGlbUrl } from "@/pages/metaClip/regalGlb";
 import FullscreenViewport from "@/components/FullscreenViewport";
 
 type CpqRegalArViewerProps = {
@@ -39,31 +36,6 @@ function toRegalParams(config: Record<string, unknown>) {
   };
 }
 
-async function buildGlbObjectUrl(config: Record<string, unknown>): Promise<string> {
-  const templates = await loadRegalTemplates();
-  const params = toRegalParams(config);
-  const built = buildRegalGroup(templates, { ...params, aussteifung: true, floorGrid: true });
-
-  const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-  const dl = new THREE.DirectionalLight(0xffffff, 1.0);
-  dl.position.set(3, 6, 4);
-  scene.add(dl);
-  scene.add(built.group);
-
-  const exporter = new GLTFExporter();
-  const glb = await new Promise<ArrayBuffer>((resolve, reject) => {
-    exporter.parse(
-      scene,
-      (result) => resolve(result as ArrayBuffer),
-      (err) => reject(err),
-      { binary: true },
-    );
-  });
-  const blob = new Blob([glb], { type: "model/gltf-binary" });
-  return URL.createObjectURL(blob);
-}
-
 export default function CpqRegalArViewer({ cpqConfig, compact = false }: CpqRegalArViewerProps) {
   const [glbUrl, setGlbUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -73,7 +45,7 @@ export default function CpqRegalArViewer({ cpqConfig, compact = false }: CpqRega
     let cancelled = false;
     let currentUrl: string | null = null;
     setError(false);
-    buildGlbObjectUrl(cpqConfig)
+    buildRegalGlbUrl(toRegalParams(cpqConfig))
       .then((url) => {
         if (cancelled) {
           URL.revokeObjectURL(url);

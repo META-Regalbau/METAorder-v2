@@ -9,6 +9,10 @@ declare global {
         "ar-modes"?: string;
         "camera-controls"?: boolean;
         "touch-action"?: string;
+        /** "fixed": AR in Originalgröße, nicht skalierbar (Regalplaner) */
+        "ar-scale"?: string;
+        "ar-placement"?: string;
+        "shadow-intensity"?: string;
         alt?: string;
       };
     }
