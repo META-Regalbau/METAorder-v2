@@ -1,0 +1,15 @@
+/* METAorder: Regalplaner META CLIP (siehe regalplaner.js).
+   Feste px-Werte, weil das META-Theme die Grundschrift auf 10px setzt (1rem = 10px). */
+.meta-rp {
+  min-height: 600px;
+  color: #121212;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.meta-rp__frame {
+  display: block;
+  width: 100%;
+  min-height: 600px;
+  border: 0;
+  background: #f5f5f5;
+}

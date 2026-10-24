@@ -4204,6 +4204,33 @@ export const openApiPaths = {
       }
     }
   },
+  "/api/cpq/admin/clip-catalog-sync": {
+    "post": {
+      "tags": [
+        "cpq"
+      ],
+      "summary": "POST /api/cpq/admin/clip-catalog-sync",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
   "/api/cpq/admin/component-types": {
     "post": {
       "tags": [
@@ -5010,6 +5037,33 @@ export const openApiPaths = {
         "cpq"
       ],
       "summary": "PUT /api/cpq/product-mappings/{id}/geometry",
+      "responses": {
+        "200": {
+          "description": "OK",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        },
+        "401": {
+          "description": "Nicht angemeldet oder ungültige Session"
+        },
+        "403": {
+          "description": "Fehlende Berechtigung oder CSRF/Origin abgelehnt"
+        }
+      }
+    }
+  },
+  "/api/cpq/public/guest-token": {
+    "get": {
+      "tags": [
+        "cpq"
+      ],
+      "summary": "GET /api/cpq/public/guest-token",
       "responses": {
         "200": {
           "description": "OK",

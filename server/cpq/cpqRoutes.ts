@@ -12,6 +12,8 @@ import { evaluateDiscountLevel } from "./discountEvaluator";
 import type { requireAuth, requireViewCPQ, requireManageCPQ } from "../auth/auth";
 import { requireCpqHandoffToken } from "../auth/auth";
 import { createCpqHandoffToken } from "./cpqHandoffToken";
+import { clipCombinationsFromMappings, type ClipCombinations } from "./clipCatalogSync";
+import { resolveGuestTenantForShop } from "./cpqEmbed";
 import { logger } from "../lib/logger";
 
 const moduleLog = logger.child({ component: "cpq/cpqRoutes" });
@@ -59,11 +61,13 @@ async function resolveCpqOptionsPayload(id: string, tenantId: string | null, ste
     surfaces: [...defaultSurfaces],
   };
 
+  let combinations: ClipCombinations | null = null;
   try {
     const [componentTypes, mappings] = await Promise.all([
       cpqStorage.getComponentTypesBySystem(id),
       cpqStorage.getProductMappingsBySystem(id, tenantId),
     ]);
+    combinations = clipCombinationsFromMappings(mappings, componentTypes);
     await ensureCpqProductCacheForTenant(tenantId);
     const { productCache } = await import("../products/productCache");
     const activeMappings = mappings.filter((m) => m.status === "active");
@@ -118,6 +122,7 @@ async function resolveCpqOptionsPayload(id: string, tenantId: string | null, ste
   return {
     options: result.config,
     availableOptions,
+    combinations,
     messages: result.messages,
     errors: result.errors,
     warnings: result.warnings,
@@ -268,6 +273,38 @@ export function registerCpqRoutes(
     } catch (error: any) {
       moduleLog.error({ err: error }, "[CPQ] Error verifying handoff token:");
       res.status(500).json({ error: error.message || "Handoff-Verifikation fehlgeschlagen" });
+    }
+  });
+
+  // GET /api/cpq/public/guest-token?shop=<Adresse des Shops> - Gast-Token für den eingebetteten Regalplaner
+  // (Shop-Seite /regalplaner ohne Plugin). Der Mandant ergibt sich aus der Shop-Adresse; der Token gilt nur
+  // für Gäste (Katalogpreise, keine Angebotsanfrage) – Kundenpreise rechnet der Warenkorb des Shops.
+  app.get("/api/cpq/public/guest-token", async (req: Request, res: Response) => {
+    try {
+      const tenantId = await resolveGuestTenantForShop(typeof req.query.shop === "string" ? req.query.shop : "");
+      if (!tenantId) return res.status(404).json({ error: "Regalplaner für diesen Shop nicht freigeschaltet" });
+      const ttlSeconds = 4 * 60 * 60;
+      const token = createCpqHandoffToken({ tenantId, customerId: null, exp: Math.floor(Date.now() / 1000) + ttlSeconds });
+      res.json({ token, expiresInSeconds: ttlSeconds });
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "[CPQ] Error creating guest token:");
+      res.status(500).json({ error: "Regalplaner konnte nicht gestartet werden" });
+    }
+  });
+
+  // POST /api/cpq/admin/clip-catalog-sync - Mappings des Systems META CLIP aus dem Shop-Spiegel ableiten
+  // (Clinch + S3, siehe clipCatalogSync.ts). { apply: false } = Vorschau, { apply: true } schreibt und liefert das Protokoll.
+  app.post("/api/cpq/admin/clip-catalog-sync", ra, rm, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.tenantId ?? null;
+      if (!tenantId) return res.status(400).json({ error: "Kein Mandant ausgewählt" });
+      const { runClipCatalogSync } = await import("./clipCatalogSyncService");
+      const result = await runClipCatalogSync(tenantId, { apply: req.body?.apply === true });
+      if (result.applied) moduleLog.info({ protocol: result.protocol }, "[CPQ] CLIP-Katalogabgleich geschrieben");
+      res.json(result);
+    } catch (error: any) {
+      moduleLog.error({ err: error }, "[CPQ] Error syncing CLIP catalog:");
+      res.status(500).json({ error: error.message || "Abgleich fehlgeschlagen" });
     }
   });
 

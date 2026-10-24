@@ -91,6 +91,14 @@
 .mclip .chips button { flex: 1 1 0; min-width: 44px; height: 44px; padding: 0 6px; border-radius: 2px; cursor: pointer; font-family: var(--font-sans); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel); }
 .mclip .chips button.on { color: var(--meta-red); border-color: var(--meta-red); }
 .mclip .chips button:disabled { color: var(--fg-disabled); cursor: not-allowed; background: var(--meta-mist); }
+/* In der aktuellen Kombination nicht lieferbar: wählbar, die übrigen Werte rücken nach */
+.mclip .chips button.dim { color: var(--fg-3); background: var(--meta-mist); border-style: dashed; }
+.mclip .tick.dim { opacity: 0.45; }
+/* Eingebettet in die Shop-Seite: Höhe nicht aus vh (der Rahmen wächst mit dem Inhalt, sonst Endlosschleife) */
+@media (min-width: 901px) {
+  .mclip.embed .stage { min-height: 600px; }
+  .mclip.embed .viewport { min-height: 440px; }
+}
 .mclip .slider { display: flex; flex-direction: column; gap: 2px; }
 .mclip input[type=range] { width: 100%; height: 36px; margin: 0; accent-color: var(--meta-red); cursor: pointer; }
 .mclip .ticks { display: flex; justify-content: space-between; }
@@ -173,11 +181,27 @@
 @media (max-width: 900px) {
   .mclip { padding: 0; }
   .mclip .cfg { border: 0; }
-  .mclip .cfg-main { grid-template-columns: 1fr; }
+  .mclip .cfg-main { grid-template-columns: minmax(0, 1fr); }
   .mclip .panel { border-left: 0; border-top: 1px solid var(--meta-steel); }
-  .mclip .cfg-foot { grid-template-columns: 1fr; }
+  .mclip .cfg-foot { grid-template-columns: minmax(0, 1fr); }
   .mclip .bom { border-left: 0; border-top: 1px solid var(--meta-steel); }
   .mclip .stage { min-height: 0; }
   .mclip .viewport { min-height: 340px; }
   .mclip .crumbs { display: none; }
+}
+
+/* Handy: nichts breiter als der Bildschirm (Maße zweispaltig, Ansicht-Knöpfe umbrechen, Stückliste ohne Art.-Nr./Einzelpreis) */
+@media (max-width: 600px) {
+  .mclip .cfg-head { padding: 0 16px; gap: 12px; }
+  .mclip .head-div { display: none; }
+  .mclip .seg, .mclip .lang-toggle { flex-shrink: 0; }
+  .mclip .stage, .mclip .panel, .mclip .summary, .mclip .bom { padding: 16px; }
+  .mclip .stage-top { flex-wrap: wrap; gap: 8px; }
+  .mclip .view-opts { flex-wrap: wrap; }
+  .mclip .dims { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mclip .dims .cell:nth-child(3) { border-left: 0; }
+  .mclip .dims .cell:nth-child(n+3) { border-top: 1px solid var(--meta-steel); }
+  .mclip .bom-grid { grid-template-columns: minmax(0, 1fr) 36px 84px; }
+  .mclip .bom-grid > :nth-child(2), .mclip .bom-grid > :nth-child(4) { display: none; }
+  .mclip .config-code code { word-break: break-all; }
 }

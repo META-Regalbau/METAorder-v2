@@ -38,10 +38,21 @@ import {
   formatNumber,
   reconcileWithOptions,
   isRegalAssemblySupported,
+  buildTuples,
+  choicesFor,
+  isChoiceAvailable,
+  snapToCatalog,
+  feldlastFor,
+  rearAvailable,
+  FALLBACK_FELDLAST_KG,
   type MetaClipState,
   type MetaClipOptions,
+  type MetaClipCombinations,
+  type FrameVariant,
   type Surface,
+  type TupleKey,
 } from "@/lib/metaClipCpq";
+import { postCartToShop, useReportEmbedHeight } from "./metaClip/shopEmbed";
 import "./metaClip/metaClip.css";
 
 // ---- copy deck (matches the design; the configurator keeps its own DE/EN toggle) ----
@@ -49,7 +60,7 @@ const L = {
   de: {
     crumb1: "Regalsysteme", crumb2: "Steckregale", viewLabel: "3D-Ansicht",
     eyebrow: "META CLIP · Steckregal", title: "Regal konfigurieren",
-    subtitle: "Sechs Einstellungen. Preis und Stückliste aus dem Live-Katalog.",
+    subtitle: "Rahmen, Maße und Last wählen. Preis und Stückliste aus dem Live-Katalog.",
     extras: "Zubehör (optional)", rearWall: "Rückwand", noteTitle: "Hinweis",
     priceLabel: "Preis netto", reset: "Zurücksetzen", summary: "Zusammenfassung",
     youSave: "Sie sparen", vsCatalog: "ggü. Katalogpreis", catalogPrice: "Katalogpreis",
@@ -80,11 +91,19 @@ const L = {
     loggedInAs: "Angemeldet als", guestNote: "Sie sind nicht angemeldet — es gilt der Katalogpreis. Melden Sie sich im Shop an, um Ihren individuellen Preis zu sehen und ein Angebot anzufragen.",
     cartComingSoon: "Die Übergabe in den Warenkorb wird in Kürze freigeschaltet.",
     requestOffer: "Angebot anfragen", requestOfferDone: "✓ Angebot angefragt",
+    frame: "Rahmen", frameClinch: "Vormontiert", frameS3: "Steckrahmen S3",
+    frameNote: { clinch: "Ständerrahmen fertig montiert geliefert.", s3: "Steckrahmen zum Selbstaufbau, günstiger." },
+    unavailable: "In dieser Kombination nicht lieferbar – Auswahl passt die übrigen Werte an.",
+    rearUnavailable: "Für diese Höhe und Feldbreite gibt es keine Rückwand.",
+    feldlast: "Feldlast",
+    guestNoteShop: "Preise ohne Anmeldung: Katalogpreis netto. Ihren Händler- oder Kundenpreis berechnet der Warenkorb, sobald Sie im Shop angemeldet sind.",
+    cartSent: "✓ Wird in den Warenkorb gelegt …",
+    cartDirect: "Den Regalplaner bitte über den Shop öffnen, um die Stückliste in den Warenkorb zu legen.",
   },
   en: {
     crumb1: "Shelving systems", crumb2: "Boltless shelving", viewLabel: "3D view",
     eyebrow: "META CLIP · Boltless shelving", title: "Configure shelving",
-    subtitle: "Six settings. Price and bill of materials from the live catalogue.",
+    subtitle: "Choose frame, dimensions and load. Price and bill of materials from the live catalogue.",
     extras: "Accessories (optional)", rearWall: "Rear panel", noteTitle: "Note",
     priceLabel: "Price, net", reset: "Reset", summary: "Summary",
     youSave: "You save", vsCatalog: "vs. catalogue price", catalogPrice: "Catalogue price",
@@ -115,6 +134,14 @@ const L = {
     loggedInAs: "Signed in as", guestNote: "You're not signed in — catalogue pricing applies. Sign in on the shop to see your individual price and request an offer.",
     cartComingSoon: "Adding this to your cart will be available soon.",
     requestOffer: "Request offer", requestOfferDone: "✓ Offer requested",
+    frame: "Frame", frameClinch: "Pre-assembled", frameS3: "S3 plug-in frame",
+    frameNote: { clinch: "Upright frames delivered fully assembled.", s3: "Plug-in frames for self-assembly, lower price." },
+    unavailable: "Not available in this combination – choosing it adjusts the other values.",
+    rearUnavailable: "No rear panel available for this height and bay width.",
+    feldlast: "Bay load",
+    guestNoteShop: "Prices without sign-in: catalogue price, net. Your dealer or customer price is calculated in the cart once you are signed in on the shop.",
+    cartSent: "✓ Adding to cart …",
+    cartDirect: "Please open the shelf planner from the shop to add the bill of materials to your cart.",
   },
 } as const;
 
@@ -130,6 +157,8 @@ export type CpqCustomerMode = {
   customerId: string | null;
   customerName: string | null;
   isPortalCustomer: boolean;
+  /** Eingebettet in die Shop-Seite /regalplaner: Adresse des Shops (Ziel der Warenkorb-Nachricht). */
+  embedShopOrigin?: string | null;
 };
 
 // ---- server response shapes ----
@@ -285,6 +314,8 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
   const lang = state.lang as Lang;
   const t = L[lang];
   const patch = (p: Partial<MetaClipState>) => { setAdded(false); setState((s) => ({ ...s, ...p })); };
+  // Maße, Last, Oberfläche und Rahmen: auf die nächste baubare Kombination rücken
+  const choose = (p: Partial<MetaClipState>) => { setAdded(false); setState((s) => (tuples.length ? snapToCatalog(s, p, tuples) : { ...s, ...p })); };
 
   // 1) system
   const { data: systems = [], isLoading: systemsLoading } = useQuery<CpqSystem[]>({
@@ -301,25 +332,37 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
   const systemId = system?.id;
 
   // 2) options (server-driven, catalogue-derived)
-  const { data: options } = useQuery<MetaClipOptions>({
+  const { data: optionsPayload } = useQuery<{ availableOptions: MetaClipOptions; combinations: MetaClipCombinations | null }>({
     queryKey: [`${cpqBase}/systems/${systemId}/options`, "opts"],
     enabled: !!systemId,
     queryFn: async () => {
       const res = await apiRequest("GET", withToken(`${cpqBase}/systems/${systemId}/options?step=2&config=%7B%7D`));
-      const json = await res.json();
-      return json.availableOptions as MetaClipOptions;
+      return res.json();
     },
   });
+  const options = optionsPayload?.availableOptions;
+  const combinations = optionsPayload?.combinations ?? null;
+  // Baubare Kombinationen (Rahmen × Boden × Diagonalstab); leer bei alten Mappings ohne Attribute
+  const tuples = useMemo(() => buildTuples(combinations), [combinations]);
+  const reconcile = (s: MetaClipState): MetaClipState =>
+    tuples.length ? snapToCatalog(s, {}, tuples) : options ? reconcileWithOptions(s, options) : s;
   useEffect(() => {
-    if (options && !reconciled.current) { reconciled.current = true; setState((s) => reconcileWithOptions(s, options)); }
-  }, [options]);
+    if (options && !reconciled.current) { reconciled.current = true; setState((s) => reconcile(s)); }
+  }, [options, tuples]);
 
   // Slider/Stepper feuern bei jedem Schritt eine State-Änderung — die BOM- und
   // Regel-Validierungs-Requests (teuer: Shopware-Preise, Rule-Engine) werden über den
   // debounced State entkoppelt, damit schnelle Eingaben nicht pro Schritt einen Request auslösen.
   const debouncedState = useDebouncedValue(state, 300);
-  const config = useMemo(() => toConfigContext(debouncedState), [debouncedState]);
-  const coreInput = useMemo(() => toCpqCoreInput(debouncedState), [debouncedState]);
+  const rearPossible = rearAvailable(state, combinations);
+  // Rückwand nur, wenn es sie in Höhe × Feldbreite gibt (sonst bliebe der Haken stehen und die Stückliste meldet einen Fehler)
+  const effectiveState = useMemo(
+    () => (debouncedState.rear && !rearAvailable(debouncedState, combinations) ? { ...debouncedState, rear: false } : debouncedState),
+    [debouncedState, combinations],
+  );
+  const feldlast = feldlastFor(effectiveState, tuples);
+  const config = useMemo(() => toConfigContext(effectiveState), [effectiveState]);
+  const coreInput = useMemo(() => toCpqCoreInput(effectiveState, feldlast ?? FALLBACK_FELDLAST_KG), [effectiveState, feldlast]);
   // Nur als Suspense-Fallback gebraucht (fast nie sichtbar, da die 3D-Komponente längst
   // geladen ist) — trotzdem memoized, damit der SVG-String nicht bei jedem Render neu gebaut wird.
   const schematicSvg = useMemo(() => schematic(state), [state]);
@@ -355,6 +398,18 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
   });
 
   // ---- mutations (CTAs) ----
+  const embedded = !!customerMode?.embedShopOrigin && typeof window !== "undefined" && window.parent !== window;
+  useReportEmbedHeight(embedded ? customerMode!.embedShopOrigin! : null);
+  const [shopCartSent, setShopCartSent] = useState(false);
+  const sendToShopCart = () => {
+    if (!embedded || !bom?.items?.length) return;
+    postCartToShop(customerMode!.embedShopOrigin!, {
+      configCode: buildConfigCode(effectiveState),
+      items: bom.items.map((i) => ({ id: i.productId, quantity: i.quantity, name: i.name })),
+    });
+    setShopCartSent(true);
+    setTimeout(() => setShopCartSent(false), 4000);
+  };
   const cartMut = useMutation({
     mutationFn: async () => {
       const cart_items = (bom?.items ?? []).map((i) => ({ product_id: i.productId, product_number: i.productNumber, quantity: i.quantity }));
@@ -422,7 +477,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
   const weight = (state.felder + 1) * (state.hoehe / 1000) * 9.5
     + state.felder * state.boeden * ((state.breite * state.tiefe) / 1e6) * 11
     + (state.rear ? state.felder * 12 : 0);
-  const configCode = buildConfigCode(state);
+  const configCode = buildConfigCode(effectiveState);
 
   const classification = core?.classification ?? "A";
   const coreValid = core?.valid ?? true;
@@ -445,35 +500,41 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
     heights: [state.hoehe], depths: [state.tiefe], widths: [state.breite],
     field_counts: [], level_counts: [], loads: [state.last], surfaces: ["verzinkt"],
   };
-  const surfaces = options0.surfaces?.length ? options0.surfaces : ["verzinkt"];
+  const surfaces = tuples.length ? (choicesFor("surface", tuples) as string[]) : options0.surfaces?.length ? options0.surfaces : ["verzinkt"];
 
   // ---- render helpers ----
   const money = (n: number) => formatMoney(n, lang);
   const nf = (n: number, d = 0) => formatNumber(n, lang, d);
 
   type OptControl = { key: "hoehe" | "breite" | "tiefe" | "last"; label: string; opts: number[]; unit: string; fmt: (v: number) => string };
+  const opts = (key: TupleKey, fallback: number[]) => (tuples.length ? (choicesFor(key, tuples) as number[]) : fallback);
   const optControls: OptControl[] = [
-    { key: "hoehe", label: t.height, opts: options0.heights, unit: t.mm, fmt: (v) => nf(v) },
-    { key: "breite", label: t.width, opts: options0.widths, unit: t.mm, fmt: (v) => nf(v) },
-    { key: "tiefe", label: t.depth, opts: options0.depths, unit: t.mm, fmt: (v) => String(v) },
-    { key: "last", label: t.load, opts: options0.loads, unit: t.kg, fmt: (v) => String(v) },
+    { key: "hoehe", label: t.height, opts: opts("hoehe", options0.heights), unit: t.mm, fmt: (v) => nf(v) },
+    { key: "breite", label: t.width, opts: opts("breite", options0.widths), unit: t.mm, fmt: (v) => nf(v) },
+    { key: "tiefe", label: t.depth, opts: opts("tiefe", options0.depths), unit: t.mm, fmt: (v) => String(v) },
+    { key: "last", label: t.load, opts: opts("last", options0.loads), unit: t.kg, fmt: (v) => String(v) },
   ];
+  const available = (key: TupleKey, v: number | string) => isChoiceAvailable(state, key, v, tuples);
+  const frameVariants = (tuples.length ? choicesFor("rahmen", tuples) : ["clinch"]) as FrameVariant[];
+  const systemLabel = state.rahmen === "s3" ? "META CLIP S3" : "META CLIP";
 
-  const chip = (on: boolean, label: string, onClick: () => void, disabled = false, key?: string | number) => (
-    <button key={key} type="button" className={on ? "on" : ""} disabled={disabled} onClick={onClick}>{label}</button>
+  // dim: in der aktuellen Kombination nicht lieferbar – wählbar, die übrigen Werte rücken nach
+  const chip = (on: boolean, label: string, onClick: () => void, disabled = false, key?: string | number, dim = false) => (
+    <button key={key} type="button" className={[on ? "on" : "", dim && !on ? "dim" : ""].filter(Boolean).join(" ") || undefined}
+      disabled={disabled} onClick={onClick} title={dim && !on ? t.unavailable : undefined}>{label}</button>
   );
 
   if (systemsLoading) return <div className="mclip"><div className="cfg" style={{ padding: 48, color: "var(--fg-3)" }}>…</div></div>;
   if (!systemId) return <div className="mclip"><div className="cfg" style={{ padding: 48, color: "var(--fg-2)" }}>{t.emptySystem}</div></div>;
 
   return (
-    <div className="mclip">
+    <div className={embedded ? "mclip embed" : "mclip"}>
       <div className="cfg" role="application" aria-label="META CLIP Konfigurator">
         {/* header */}
         <div className="cfg-head">
           <img src="/img/meta-logo-red.png" alt="META" />
           <div className="head-div" />
-          <div className="crumbs"><span>{t.crumb1}</span><span>›</span><span>{t.crumb2}</span><span>›</span><span className="now">META CLIP</span></div>
+          <div className="crumbs"><span>{t.crumb1}</span><span>›</span><span>{t.crumb2}</span><span>›</span><span className="now">{systemLabel}</span></div>
           <div style={{ flex: 1 }} />
           <div className="seg" role="group" aria-label={t.viewLabel}>
             <button type="button" className={state.mode === "slider" ? "on" : ""} onClick={() => setState((s) => ({ ...s, mode: "slider" }))}>{t.modeSlider}</button>
@@ -499,7 +560,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
             </div>
             <div className="viewport">
               <Suspense fallback={<div dangerouslySetInnerHTML={{ __html: schematicSvg }} />}>
-                <MetaClipRegalAssembly state={state} />
+                <MetaClipRegalAssembly state={state.rear && !rearPossible ? { ...state, rear: false } : state} />
               </Suspense>
               <div className="view-caption">{t.views[state.view]} · {nf(laenge)} × {nf(state.hoehe)} × {state.tiefe} {t.mm}</div>
               <div className="view-hint">{isRegalAssemblySupported(state) ? "3D · echter Aufbau" : "3D · echter Aufbau (skaliert)"}</div>
@@ -514,7 +575,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
           {/* panel */}
           <div className="panel">
             <div className="panel-head">
-              <span className="eyebrow">{t.eyebrow}</span>
+              <span className="eyebrow">{state.rahmen === "s3" ? t.eyebrow.replace("META CLIP", "META CLIP S3") : t.eyebrow}</span>
               <span className="panel-title">{t.title}</span>
               <span className="panel-sub">{t.subtitle}</span>
             </div>
@@ -528,7 +589,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                 {customerMode.customerId ? (
                   <span className="control-note">{customerMode.customerName || customerMode.customerId}</span>
                 ) : (
-                  <span className="control-note">{t.guestNote}</span>
+                  <span className="control-note">{customerMode.embedShopOrigin ? t.guestNoteShop : t.guestNote}</span>
                 )}
               </div>
             ) : (
@@ -549,6 +610,15 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
             <div className="rule" />
 
             <div className="controls">
+              {frameVariants.length > 1 && (
+                <div className="control">
+                  <div className="control-head"><span className="control-label">{t.frame}</span></div>
+                  <div className="chips">
+                    {frameVariants.map((v) => chip(state.rahmen === v, v === "s3" ? t.frameS3 : t.frameClinch, () => choose({ rahmen: v }), false, v, !available("rahmen", v)))}
+                  </div>
+                  <span className="control-note">{t.frameNote[state.rahmen]}</span>
+                </div>
+              )}
               <Stepper label={t.fields} value={state.felder} min={1} max={8} unit={t.pcs} note={t.fieldsNote}
                 onDec={() => patch({ felder: Math.max(1, state.felder - 1) })} onInc={() => patch({ felder: Math.min(8, state.felder + 1) })} />
 
@@ -563,14 +633,14 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                     </div>
                     {state.mode === "chips" ? (
                       <div className="chips">
-                        {c.opts.map((v) => chip(v === cur, c.fmt(v), () => patch({ [c.key]: v } as Partial<MetaClipState>), false, v))}
+                        {c.opts.map((v) => chip(v === cur, c.fmt(v), () => choose({ [c.key]: v } as Partial<MetaClipState>), false, v, !available(c.key, v)))}
                       </div>
                     ) : (
                       <div className="slider">
                         <input type="range" min={0} max={Math.max(0, c.opts.length - 1)} step={1} value={idx}
                           aria-label={c.label}
-                          onChange={(e) => patch({ [c.key]: c.opts[Number(e.target.value)] } as Partial<MetaClipState>)} />
-                        <div className="ticks">{c.opts.map((v) => <span key={v} className={`tick ${v === cur ? "on" : ""}`}>{c.fmt(v)}</span>)}</div>
+                          onChange={(e) => choose({ [c.key]: c.opts[Number(e.target.value)] } as Partial<MetaClipState>)} />
+                        <div className="ticks">{c.opts.map((v) => <span key={v} className={`tick ${v === cur ? "on" : ""} ${available(c.key, v) ? "" : "dim"}`}>{c.fmt(v)}</span>)}</div>
                       </div>
                     )}
                   </div>
@@ -587,15 +657,16 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
             <div className="extras">
               <span className="extras-label">{t.extras}</span>
               <div className="surface">
-                {surfaces.map((sf) => chip(state.surface === sf, sf === "lackiert" ? t.coat : t.zinc, () => patch({ surface: sf as Surface }), false, sf))}
+                {surfaces.map((sf) => chip(state.surface === sf, sf === "lackiert" ? t.coat : t.zinc, () => choose({ surface: sf as Surface }), false, sf, !available("surface", sf)))}
               </div>
-              <button type="button" className="rear" aria-pressed={state.rear} onClick={() => patch({ rear: !state.rear })}>
+              <button type="button" className="rear" aria-pressed={state.rear && rearPossible} disabled={!rearPossible} onClick={() => patch({ rear: !state.rear })}>
                 <span className="name">{t.rearWall}</span>
                 <span className="meta">
-                  {state.rear && rearItem ? <span className="price">+ {money(rearItem.lineTotal)}</span> : null}
-                  <span className={`box ${state.rear ? "on" : ""}`}>{state.rear ? "✓" : ""}</span>
+                  {state.rear && rearPossible && rearItem ? <span className="price">+ {money(rearItem.lineTotal)}</span> : null}
+                  <span className={`box ${state.rear && rearPossible ? "on" : ""}`}>{state.rear && rearPossible ? "✓" : ""}</span>
                 </span>
               </button>
+              {!rearPossible && <span className="control-note">{t.rearUnavailable}</span>}
             </div>
 
             {disclaimer && (
@@ -630,8 +701,14 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                 <span className="dot" style={{ background: availDot }} />
                 <span className="txt">{availText}</span>
               </div>
-              {customerMode ? (
-                <div className="control-note" style={{ textAlign: "center", padding: "10px 0" }}>{t.cartComingSoon}</div>
+              {customerMode && embedded ? (
+                <button type="button" className="btn btn-lg btn-primary"
+                  disabled={blocked || bomFetching || !!bomErrors.length || !bom?.items?.length || shopCartSent}
+                  onClick={sendToShopCart}>
+                  {blocked ? t.reviewBlocked : shopCartSent ? t.cartSent : t.cart}
+                </button>
+              ) : customerMode ? (
+                <div className="control-note" style={{ textAlign: "center", padding: "10px 0" }}>{customerMode.embedShopOrigin ? t.cartDirect : t.cartComingSoon}</div>
               ) : (
                 <button type="button" className="btn btn-lg btn-primary"
                   disabled={blocked || bomFetching || !!bomErrors.length || !bom?.items?.length || cartMut.isPending}
@@ -655,7 +732,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
                   </button>
                 )}
                 <button type="button" className="btn btn-md btn-tertiary"
-                  onClick={() => { reconciled.current = false; setState((s) => reconcileWithOptions({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode, showDims: s.showDims }, options0)); }}>
+                  onClick={() => { setAdded(false); setState((s) => reconcile({ ...DEFAULT_STATE, lang: s.lang, mode: s.mode, showDims: s.showDims })); }}>
                   {t.reset}
                 </button>
               </div>
@@ -669,11 +746,12 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
             <span className="sec-label">{t.summary}</span>
             <div className="sum-rows">
               {[
-                [t.sumRows[0], `META CLIP · ${coated ? t.coat : t.zinc}${state.rear ? " · " + t.rearWall : ""}`],
+                [t.sumRows[0], `${systemLabel} · ${state.rahmen === "s3" ? t.frameS3 : t.frameClinch} · ${coated ? t.coat : t.zinc}${state.rear && rearPossible ? " · " + t.rearWall : ""}`],
                 [t.sumRows[1], `${nf(laenge)} × ${nf(state.hoehe)} × ${state.tiefe} ${t.mm}`],
                 [t.sumRows[2], `${state.felder} × ${state.boeden}`],
                 [t.sumRows[3], `${state.last} ${t.kg}`],
                 [t.sumRows[4], `${nf(nominalCapacity)} ${t.kg}`],
+                ...(feldlast ? [[t.feldlast, `${nf(feldlast)} ${t.kg}`]] : []),
                 [t.sumRows[5], `${nf(weight, 0)} ${t.kg}`],
               ].map(([k, v], i) => (
                 <div className="sum-row" key={i}><span className="k">{k}</span><span className="v">{v}</span></div>
