@@ -11,12 +11,14 @@
  * - height: Höhe des Rahmens an den Inhalt anpassen (kein zweiter Rollbalken).
  * - cart: Stückliste in den Warenkorb legen, in der Sitzung des Besuchers. Händler- und Kundenpreise
  *   rechnet damit der Shop selbst; METAorder zeigt ohne Anmeldung nur Katalogpreise.
+ * Umgekehrt meldet das Skript beim Scrollen, wie viel vom Rahmen oben verdeckt ist (viewport, auch unter einer
+ * mitlaufenden Kopfzeile). Damit bleibt die 3D-Ansicht am Desktop stehen, während man die Einstellungen scrollt.
  */
 var MetaRegalplaner = (function () {
   'use strict';
 
   var CONFIG = {
-    version: '1',
+    version: '2',
     // Nur der Onlineshop „META Regalbau DE" (gleiche ID im Testshop und im Live-Shop).
     salesChannelIds: ['018ec134507f703b82a76467791e7e61'],
     source: 'metaorder-regalplaner',
@@ -54,7 +56,12 @@ var MetaRegalplaner = (function () {
     return order.map(function (id) { return { id: id, qty: byId[id] }; });
   }
 
-  var api = { config: CONFIG, appOrigin: appOrigin, cartPositions: cartPositions };
+  /** Verdeckter Teil des Rahmens oben (px): über den Bildschirmrand gescrollt oder unter der Kopfzeile. */
+  function hiddenTop(frameTop, coveredBottom) {
+    return Math.max(0, Math.round(coveredBottom - frameTop));
+  }
+
+  var api = { config: CONFIG, appOrigin: appOrigin, cartPositions: cartPositions, hiddenTop: hiddenTop };
   if (typeof window === 'undefined' || typeof document === 'undefined') return api;
   if (CONFIG.salesChannelIds.indexOf(window.salesChannelId) === -1) return api;
 
@@ -95,6 +102,24 @@ var MetaRegalplaner = (function () {
     form.submit();
   }
 
+  /** Unterkante mitlaufender Kopfzeilen (fixed/sticky am oberen Rand), sonst 0. */
+  function coveredBottom() {
+    if (!document.elementsFromPoint) return 0;
+    var bottom = 0;
+    var stack = document.elementsFromPoint(window.innerWidth / 2, 2);
+    for (var i = 0; i < stack.length; i++) {
+      for (var node = stack[i]; node && node !== document.body && node !== document.documentElement; node = node.parentElement) {
+        var position = window.getComputedStyle(node).position;
+        if (position !== 'fixed' && position !== 'sticky') continue;
+        var rect = node.getBoundingClientRect();
+        // Vollflächige Ebenen (Cookie-Hinweis) zählen nicht als Kopfzeile
+        if (rect.top <= 2 && rect.bottom > bottom && rect.bottom < window.innerHeight / 2) bottom = rect.bottom;
+        break;
+      }
+    }
+    return bottom;
+  }
+
   function mount(slot) {
     var origin = appOrigin(slot.getAttribute('data-app') || '');
     if (!origin || slot.querySelector('iframe')) return;
@@ -107,6 +132,22 @@ var MetaRegalplaner = (function () {
     slot.innerHTML = '';
     slot.appendChild(frame);
 
+    var queued = false;
+    function sendViewport() {
+      queued = false;
+      if (!frame.contentWindow) return;
+      var top = hiddenTop(frame.getBoundingClientRect().top, coveredBottom());
+      frame.contentWindow.postMessage({ source: CONFIG.source, type: 'viewport', top: top }, origin);
+    }
+    function queueViewport() {
+      if (queued) return;
+      queued = true;
+      window.requestAnimationFrame(sendViewport);
+    }
+    window.addEventListener('scroll', queueViewport, { passive: true });
+    window.addEventListener('resize', queueViewport);
+    frame.addEventListener('load', queueViewport);
+
     window.addEventListener('message', function (event) {
       if (event.origin !== origin || event.source !== frame.contentWindow) return;
       var data = event.data || {};
@@ -114,6 +155,7 @@ var MetaRegalplaner = (function () {
       if (data.type === 'height') {
         var h = Number(data.height);
         if (h > 0 && h < 20000) frame.style.height = Math.max(CONFIG.minHeight, Math.ceil(h)) + 'px';
+        queueViewport();
       } else if (data.type === 'cart') {
         var positions = cartPositions(data);
         if (positions) addToCart(positions);

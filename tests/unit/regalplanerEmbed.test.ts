@@ -29,6 +29,13 @@ describe("Regalplaner-Baustein im Shop", () => {
     expect(rp.appOrigin("javascript:alert(1)")).toBeNull();
   });
 
+  it("meldet den verdeckten Teil des Rahmens oben (Scrollen und mitlaufende Kopfzeile)", () => {
+    expect(rp.hiddenTop(300, 0)).toBe(0);
+    expect(rp.hiddenTop(-450, 0)).toBe(450);
+    expect(rp.hiddenTop(-450, 120)).toBe(570);
+    expect(rp.hiddenTop(50, 120)).toBe(70);
+  });
+
   it("nimmt nur gültige Positionen in den Warenkorb und fasst gleiche Artikel zusammen", () => {
     expect(rp.cartPositions({ items: [{ id: ID, quantity: 3 }, { id: ID, quantity: 2 }] })).toEqual([{ id: ID, qty: 5 }]);
     expect(rp.cartPositions({ items: [{ id: "x", quantity: 1 }] })).toBeNull();
