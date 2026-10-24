@@ -52,7 +52,7 @@ import {
   type Surface,
   type TupleKey,
 } from "@/lib/metaClipCpq";
-import { postCartToShop, useReportEmbedHeight } from "./metaClip/shopEmbed";
+import { postCartToShop, useEmbedStickyStage, useReportEmbedHeight } from "./metaClip/shopEmbed";
 import "./metaClip/metaClip.css";
 
 // ---- copy deck (matches the design; the configurator keeps its own DE/EN toggle) ----
@@ -400,6 +400,7 @@ export default function CPQConfiguratorPage({ customerMode }: { customerMode?: C
   // ---- mutations (CTAs) ----
   const embedded = !!customerMode?.embedShopOrigin && typeof window !== "undefined" && window.parent !== window;
   useReportEmbedHeight(embedded ? customerMode!.embedShopOrigin! : null);
+  useEmbedStickyStage(embedded ? customerMode!.embedShopOrigin! : null);
   const [shopCartSent, setShopCartSent] = useState(false);
   const sendToShopCart = () => {
     if (!embedded || !bom?.items?.length) return;
