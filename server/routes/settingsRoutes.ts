@@ -1,5 +1,6 @@
 // Einstellungen: Shopware, Mondu, E-Mail, KI, Nummernkreise, Mahnwesen, Rechnungsautomatik u. a.
 import { requireAuth, requireManageSettings, requireManageDocuments, requireCsrf } from "../auth/auth";
+import { isAdministrator, roleChangeError } from "../auth/privilegeGuard";
 import { storage } from "../storage";
 import { shopwareSettingsSchema, proformaNumberRangeSchema, invoiceAutomationSettingsSchema, dunningSettingsSchema, monduSettingsSchema, type MonduSettings, type WebhookEventType } from "@shared/schema";
 import { z } from "zod";
@@ -223,10 +224,25 @@ export function registerSettingsRoutes(app: Express): void {
    * Schluessel-Mandanten sein - sonst entstehen Keys, die erst zur Laufzeit scheitern (verwirrend) oder,
    * schlimmer, bei spaeteren Mitgliedschafts-Aenderungen unbemerkt scharf werden.
    * Bei ungueltigem Benutzer antwortet sie selbst mit 400 und liefert null.
+   *
+   * Ein Schluessel arbeitet mit den Rechten seines Benutzers (gebunden oder Ersatz-Benutzer). Wer kein
+   * Administrator ist, darf ihn deshalb nur an Benutzer binden, deren Rolle keine Rechte ueber die eigenen
+   * hinaus hat - sonst haette „Einstellungen verwalten“ den Weg zu Administrator-Rechten geoeffnet (403).
    */
-  async function resolveKeyUser(raw: unknown, tenantId: string, res: Response): Promise<{ userId: string | null } | null> {
+  async function resolveKeyUser(raw: unknown, tenantId: string, res: Response, actor: unknown): Promise<{ userId: string | null } | null> {
     const requestedUserId = typeof raw === "string" ? raw.trim() : "";
-    if (!requestedUserId) return { userId: null };
+    const keyUserTooPowerful = async (user: { roleId?: string | null; role?: string | null } | null) => {
+      if (!user || isAdministrator(actor)) return false;
+      const role = user.roleId ? await storage.getRole(user.roleId) : null;
+      const error = user.role === "admin" ? "Administrator" : roleChangeError(actor as never, role);
+      if (!error) return false;
+      res.status(403).json({ error: "Diesem Benutzer kann nur ein Administrator einen Integrations-Schlüssel zuordnen." });
+      return true;
+    };
+    if (!requestedUserId) {
+      if (await keyUserTooPowerful(await loadFallbackIntegrationUser(storage))) return null;
+      return { userId: null };
+    }
     const requestedUser = await storage.getUser(requestedUserId);
     if (!requestedUser) {
       res.status(400).json({ error: "userId nicht gefunden" });
@@ -237,6 +253,7 @@ export function registerSettingsRoutes(app: Express): void {
       res.status(400).json({ error: "Der angegebene Benutzer ist diesem Mandanten nicht zugeordnet." });
       return null;
     }
+    if (await keyUserTooPowerful(requestedUser as never)) return null;
     return { userId: requestedUser.id };
   }
 
@@ -279,7 +296,7 @@ export function registerSettingsRoutes(app: Express): void {
         return res.status(400).json({ error: "Tenant required" });
       }
       const name = typeof req.body?.name === "string" ? req.body.name : "";
-      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res);
+      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res, req.user);
       if (!resolved) return;
       const created = await storage.createTenantIntegrationApiKey(tenantId, name, resolved.userId);
       res.json({
@@ -300,7 +317,7 @@ export function registerSettingsRoutes(app: Express): void {
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant required" });
       }
-      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res);
+      const resolved = await resolveKeyUser(req.body?.userId, tenantId, res, req.user);
       if (!resolved) return;
       const ok = await storage.setTenantIntegrationApiKeyUser(req.params.id, tenantId, resolved.userId);
       if (!ok) {

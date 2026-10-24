@@ -22,6 +22,29 @@ import { logger } from "../lib/logger";
 
 const log = logger.child({ component: "routes/offerRoutes" });
 
+/**
+ * Kanalprüfung für die Routen eines einzelnen Angebots (/api/offers/:id…). Die Angebotsliste filtert nach den
+ * Kanälen des Benutzers; ohne diese Prüfung kam man über die ID trotzdem an Angebote anderer Kanäle.
+ * Administratoren (Kanalfilter null) sind ausgenommen. Lässt sich das Angebot nicht laden, entscheidet die Route.
+ */
+async function requireOfferChannelAccess(req: Request, res: Response, next: () => void) {
+  try {
+    const allowed = await getSalesChannelFilter(req);
+    if (allowed === null) return next();
+    const settings = await storage.getShopwareSettings((req as any).tenantId ?? null);
+    if (!settings) return next();
+    const client = new B2BSellersClient(settings);
+    const raw = await client.fetchOfferById(req.params.id);
+    const offer = client.mapOffer(raw.data, undefined, raw.included);
+    if (!allowed.includes(offer.salesChannelId)) {
+      return res.status(403).json({ error: "You don't have access to this offer" });
+    }
+    next();
+  } catch {
+    next();
+  }
+}
+
 export function registerOfferRoutes(app: Express): void {
   app.get("/api/offers/learning-settings", requireAuth, requireManageOffers, async (req, res) => {
     try {
@@ -54,7 +77,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // POST /api/offers/:id/cpq-configuration - eine weitere CPQ-Konfiguration zu einem bestehenden Angebot hinzufügen
-  app.post("/api/offers/:id/cpq-configuration", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.post("/api/offers/:id/cpq-configuration", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { systemId, systemName, config, billOfMaterials, cpqConfigurationId, previewImageBase64 } = req.body;
@@ -195,7 +218,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/config-pdf - METAorder PDF with MetaCalc image, description, BOM, overview (Versand, Montage, MwSt.)
-  app.get("/api/offers/:id/config-pdf", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/config-pdf", requireAuth, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { download } = req.query;
@@ -248,7 +271,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/pdf - Download or preview offer PDF (optional, if configured)
-  app.get("/api/offers/:id/pdf", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/pdf", requireAuth, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { download } = req.query;
@@ -301,7 +324,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/export.csv — ERP-Import (CSV, UTF-8 mit BOM, Semikolon)
-  app.get("/api/offers/:id/export.csv", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/export.csv", requireAuth, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const settings = await storage.getShopwareSettings();
@@ -325,7 +348,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/export.xml — ERP-Import (XML)
-  app.get("/api/offers/:id/export.xml", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/export.xml", requireAuth, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const settings = await storage.getShopwareSettings();
@@ -349,7 +372,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id - Get single offer with full details
-  app.get("/api/offers/:id", requireAuthOrIntegrationKey, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id", requireAuthOrIntegrationKey, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const detail = await buildOfferDetailJson(storage, id, (req as any).tenantId);
@@ -361,7 +384,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/share-link — aktiver öffentlicher Link (ohne Klartext-Token)
-  app.get("/api/offers/:id/share-link", requireAuth, requireViewOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/share-link", requireAuth, requireViewOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const active = await storage.getActiveOfferPublicLinkForOffer(id, (req as any).tenantId);
@@ -591,7 +614,7 @@ export function registerOfferRoutes(app: Express): void {
   );
 
   // PATCH /api/offers/:id - Update offer details
-  app.patch("/api/offers/:id", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.patch("/api/offers/:id", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const updateSchema = z.object({
@@ -621,7 +644,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/service-catalog - alle Zusatzleistungs-Artikel (Montage, Mitnahmestapler, Ladebordwand, Fixtermin, ...) liefern
-  app.get("/api/offers/:id/service-catalog", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/service-catalog", requireAuth, requireManageOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { listOfferServiceProducts } = await import("../offers/montageLineItem");
       const services = await listOfferServiceProducts(storage, req.tenantId ?? null);
@@ -633,7 +656,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // POST /api/offers/:id/service-line-item - einen Zusatzleistungs-Artikel als echte Position hinzufügen
-  app.post("/api/offers/:id/service-line-item", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.post("/api/offers/:id/service-line-item", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const bodySchema = z.object({
@@ -652,7 +675,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // GET /api/offers/:id/montage-suggestion - berechneten Montagepreis-Vorschlag für ein Angebot liefern
-  app.get("/api/offers/:id/montage-suggestion", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/montage-suggestion", requireAuth, requireManageOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { computeOfferMontageSuggestion } = await import("../offers/montageLineItem");
@@ -665,7 +688,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // POST /api/offers/:id/montage-line-item - Montagekosten als echte Position zum Angebot hinzufügen
-  app.post("/api/offers/:id/montage-line-item", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.post("/api/offers/:id/montage-line-item", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const bodySchema = z.object({
@@ -683,7 +706,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // DELETE /api/offers/:id/line-items/:itemId - eine einzelne Position aus einem Angebot entfernen
-  app.delete("/api/offers/:id/line-items/:itemId", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.delete("/api/offers/:id/line-items/:itemId", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id, itemId } = req.params;
       const settings = await storage.getShopwareSettings(req.tenantId ?? null);
@@ -702,7 +725,7 @@ export function registerOfferRoutes(app: Express): void {
 
   // GET /api/offers/:id/room-layout - Raum-Layout (falls vorhanden) + Grundrisse aller
   // Konfigurationen des Angebots liefern, damit der Raumplaner sie platzieren kann
-  app.get("/api/offers/:id/room-layout", requireAuth, requireManageOffers, async (req: Request, res: Response) => {
+  app.get("/api/offers/:id/room-layout", requireAuth, requireManageOffers, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { buildOfferDetailJson } = await import("../offers/offerDetailBuilder");
@@ -734,7 +757,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // PUT /api/offers/:id/room-layout - Raum-Layout speichern (mit Server-seitiger Kollisionsprüfung)
-  app.put("/api/offers/:id/room-layout", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.put("/api/offers/:id/room-layout", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const bodySchema = z.object({
@@ -840,7 +863,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // POST /api/offers/:id/approve
-  app.post("/api/offers/:id/approve", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.post("/api/offers/:id/approve", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const settings = await storage.getShopwareSettings();
@@ -859,7 +882,7 @@ export function registerOfferRoutes(app: Express): void {
   });
 
   // POST /api/offers/:id/reject
-  app.post("/api/offers/:id/reject", requireAuth, requireManageOffers, requireCsrf, async (req: Request, res: Response) => {
+  app.post("/api/offers/:id/reject", requireAuth, requireManageOffers, requireCsrf, requireOfferChannelAccess, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const { reason } = req.body as { reason?: string };
