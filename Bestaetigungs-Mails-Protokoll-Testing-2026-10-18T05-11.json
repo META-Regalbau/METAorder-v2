@@ -1,0 +1,36 @@
+{
+  "tenantId": "13e1a563-e54f-4a41-9550-69be94f312bf",
+  "at": "2026-10-18T05:11:48.373Z",
+  "base": "https://test.meta.wirduzen.dev",
+  "parts": [
+    "newsletter",
+    "flows",
+    "footer"
+  ],
+  "template": {
+    "id": "018ec133f56573549b86ef495ac2a06a",
+    "subject": "Newsletter",
+    "contentHtml": "<h3>Hallo {{ newsletterRecipient.firstName }} {{ newsletterRecipient.lastName }}</h3>\n                <p>Schön, dass Sie sich für unseren Newsletter interessieren!</p>\n                <p>Um einem Missbrauch Ihrer E-Mail-Adresse vorzubeugen, haben wir Ihnen diese Bestätigungsmail gesendet. Bestätigen Sie, dass Sie den Newsletter regelmäßig erhalten wollen, indem Sie <a href=\"{{ url }}\">hier</a> klicken.</p>\n                <p>Sollten Sie den Newsletter nicht angefordert haben, ignorieren Sie diese E-Mail.</p>\n        ",
+    "contentPlain": "Hallo {{ newsletterRecipient.firstName }} {{ newsletterRecipient.lastName }}\n\n                Schön, dass Sie sich für unseren Newsletter interessieren!\n\n                Um einem Missbrauch Ihrer E-Mail-Adresse vorzubeugen, haben wir Ihnen diese Bestätigungsmail gesendet. Bestätigen Sie, dass Sie den Newsletter regelmäßig erhalten wollen, indem Sie auf den folgenden Link klicken: {{ url }}\n\n                Sollten Sie den Newsletter nicht angefordert haben, ignorieren Sie diese E-Mail.\n        "
+  },
+  "flows": [
+    {
+      "id": "018ec1342375738e96a6fc6cd45f6b59",
+      "name": "x- Guest account registered with double opt-in",
+      "eventName": "checkout.customer.double_opt_in_guest_order",
+      "active": true
+    },
+    {
+      "id": "018ec1342375738e96a6fc6cd34a7b45",
+      "name": "x- Customer account registered with double opt-in",
+      "eventName": "checkout.customer.double_opt_in_registration",
+      "active": true
+    }
+  ],
+  "headerFooter": {
+    "id": "0194228d48777287bb1cdef1788598b2",
+    "headerHtml": "<div style=\"margin-bottom: 20px\"><img src=\"https://shop.meta-online.com/media/49/8d/35/1741168752/META_at_all_levels_RGB_klein.png?ts=1741168752\" width=\"220px\"></div>",
+    "footerHtml": "<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color: #f5f5f5; font-family: Arial, sans-serif; font-size: 12px; color: #666666; padding: 20px; margin-top: 40px;\">\r\n    \r\n    <!-- Logo allein in erster Zeile -->\r\n    <tr>\r\n        <td colspan=\"3\" style=\"padding-bottom: 10px;\">\r\n            <img src=\"{{ asset('media/49/8d/35/1741168752/META_at_all_levels_RGB_klein.png?ts=1741168766') }}\" alt=\"META Regalbau Logo\" style=\"max-width: 150px; display: block;\" />\r\n        </td>\r\n    </tr>\r\n\r\n    <!-- 3 Spalten -->\r\n    <tr>\r\n        <!-- Adresse -->\r\n        <td width=\"33.33%\" valign=\"top\" style=\"padding: 10px;\">\r\n           META Regalbau GmbH & Co. KG<br>\r\nEichenkamp<br>\r\n59759 Arnsberg<br>\r\nDeutschland\r\n        </td>\r\n\r\n        <!-- Bankverbindung -->\r\n        <td width=\"33.33%\" valign=\"top\" style=\"padding: 10px;\">\r\nDeutsche Bank Arnsberg<br>\r\nIBAN: DE83466700070554477000<br>\r\nBIC: DEUTDEDW466\r\n        </td>\r\n\r\n        <!-- Social Media, unten rechts -->\r\n        <td width=\"33.33%\" valign=\"top\" style=\"padding: 10px; text-align: right; vertical-align: bottom;\">\r\n            <div style=\"margin-top: 40px;\">\r\n                <a href=\"https://www.facebook.com/meta.regalbau/\" target=\"_blank\" style=\"margin-left: 8px;\">\r\n                    <img src=\"{{ asset('media/9a/e6/05/1743667987/Facebook.svg?ts=1743667987') }}\" alt=\"Facebook\" width=\"20\" height=\"20\" />\r\n                </a>\r\n                <a href=\"https://www.instagram.com/meta_regalbau/\" target=\"_blank\" style=\"margin-left: 8px;\">\r\n                    <img src=\"{{ asset('media/53/78/88/1743667987/Insta.svg?ts=1743667987') }}\" alt=\"Instagram\" width=\"20\" height=\"20\" />\r\n                </a>\r\n                <a href=\"https://www.youtube.com/user/METAregalbau\" target=\"_blank\" style=\"margin-left: 8px;\">\r\n                    <img src=\"{{ asset('media/fa/c3/eb/1743667987/youtube.svg?ts=1743667987') }}\" alt=\"Youtube\" width=\"20\" height=\"20\" />\r\n                </a>\r\n                <a href=\"https://www.linkedin.com/company/meta-regalbau-gmbh-&-co-kg/\" target=\"_blank\" style=\"margin-left: 8px;\">\r\n                    <img src=\"{{ asset('media/4d/ba/be/1743667987/Linkedin.svg?ts=1743667987') }}\" alt=\"LinkedIn\" width=\"20\" height=\"20\" />\r\n                </a>\r\n            </div>\r\n        </td>\r\n    </tr>\r\n\r\n    <!-- Rechtliche Links -->\r\n    <tr>\r\n        <td colspan=\"3\" style=\"padding-top: 10px; border-top: 1px solid #dddddd; text-align: center;\">\r\n            <a href=\"{{ seoUrl('frontend.cms.page', { 'id': 'impressum-page-id' }) }}\" style=\"color: #666666; text-decoration: none; margin: 0 10px;\">Impressum</a>\r\n            <a href=\"{{ seoUrl('frontend.cms.page', { 'id': 'datenschutz-page-id' }) }}\" style=\"color: #666666; text-decoration: none; margin: 0 10px;\">Datenschutz</a>\r\n            <a href=\"{{ seoUrl('frontend.cms.page', { 'id': 'agb-page-id' }) }}\" style=\"color: #666666; text-decoration: none; margin: 0 10px;\">AGB</a>\r\n        </td>\r\n    </tr>\r\n</table>\r\n",
+    "footerPlain": "\n\n        Adresse:\n        {{ config('core.basicInformation.address')|striptags('<br>')|replace({\"<br>\":\"\\n\"}) }}\n\n        Bankverbindung:\n        {{ config('core.basicInformation.bankAccount')|striptags('<br>')|replace({\"<br>\":\"\\n\"}) }}\n"
+  }
+}
