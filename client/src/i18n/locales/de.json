@@ -5523,6 +5523,22 @@
         "pending": "Ausstehend",
         "approved": "Freigegeben",
         "rejected": "Abgelehnt"
+      },
+      "clipSync": {
+        "button": "CLIP aus Shop-Katalog abgleichen",
+        "title": "Regalplaner META CLIP: Abgleich mit dem Shop-Katalog",
+        "description": "Leitet die Mappings für vormontierte Rahmen und Steckrahmen S3 aus den Artikelnamen im Shop-Spiegel ab. Rahmen ohne belegte Feldlast und Fremdteile werden nicht angeboten; nichts wird gelöscht, nur deaktiviert.",
+        "loading": "Shop-Katalog wird gelesen…",
+        "summary": "Soll: {{specs}} Teile, davon {{unchanged}} unverändert.",
+        "createsSystem": "Das System META CLIP fehlt und wird mit allen Bauteiltypen angelegt.",
+        "create": "Neu",
+        "update": "Geändert",
+        "deactivate": "Deaktiviert",
+        "skipped": "Ausgelassen",
+        "nothingToDo": "Alles aktuell, nichts zu tun.",
+        "apply": "Übernehmen",
+        "doneTitle": "Abgleich übernommen",
+        "doneDescription": "{{create}} neu, {{update}} geändert, {{deactivate}} deaktiviert."
       }
     },
     "review": {
@@ -6832,7 +6848,10 @@
       "invalid_customer_mail_run": "Aussendung unvollständig (Mailart, Vorlage, Absender und Betreff nötig)",
       "failed_to_create_customer_mail_run": "Aussendung konnte nicht angelegt werden",
       "failed_to_load_customer_mail_effect": "Wirkung konnte nicht geladen werden",
-      "beitrag_nicht_gefunden": "Beitrag nicht gefunden"
+      "beitrag_nicht_gefunden": "Beitrag nicht gefunden",
+      "regalplaner_fur_diesen_shop_nicht_freigeschaltet": "Regalplaner für diesen Shop nicht freigeschaltet",
+      "regalplaner_konnte_nicht_gestartet_werden": "Regalplaner konnte nicht gestartet werden",
+      "abgleich_fehlgeschlagen": "Abgleich fehlgeschlagen"
     }
   },
   "roomPlanner": {

@@ -5523,6 +5523,22 @@
         "pending": "Pendiente",
         "approved": "Aprobado",
         "rejected": "Rechazado"
+      },
+      "clipSync": {
+        "button": "Sincronizar CLIP con el catálogo",
+        "title": "Planificador META CLIP: sincronizar con el catálogo de la tienda",
+        "description": "Deriva las asignaciones de bastidores premontados y bastidores enchufables S3 a partir de los nombres de los artículos en la copia de la tienda. Los bastidores sin carga por módulo documentada y las piezas de otros sistemas no se ofrecen; no se borra nada, solo se desactiva.",
+        "loading": "Leyendo el catálogo de la tienda…",
+        "summary": "Objetivo: {{specs}} piezas, {{unchanged}} sin cambios.",
+        "createsSystem": "Falta el sistema META CLIP; se creará con todos los tipos de componente.",
+        "create": "Nuevas",
+        "update": "Modificadas",
+        "deactivate": "Desactivadas",
+        "skipped": "Omitidas",
+        "nothingToDo": "Todo está al día.",
+        "apply": "Aplicar",
+        "doneTitle": "Sincronización aplicada",
+        "doneDescription": "{{create}} nuevas, {{update}} modificadas, {{deactivate}} desactivadas."
       }
     },
     "review": {
@@ -6832,7 +6848,10 @@
       "invalid_customer_mail_run": "Envío incompleto (tipo, plantilla, remitente y asunto obligatorios)",
       "failed_to_create_customer_mail_run": "No se pudo crear el envío",
       "failed_to_load_customer_mail_effect": "No se pudo cargar el efecto",
-      "beitrag_nicht_gefunden": "Entrada no encontrada"
+      "beitrag_nicht_gefunden": "Entrada no encontrada",
+      "regalplaner_fur_diesen_shop_nicht_freigeschaltet": "El planificador de estanterías no está activado para esta tienda",
+      "regalplaner_konnte_nicht_gestartet_werden": "No se pudo iniciar el planificador de estanterías",
+      "abgleich_fehlgeschlagen": "La sincronización ha fallado"
     }
   },
   "roomPlanner": {

@@ -18,6 +18,8 @@ import { FRAME_POST_WIDTH_MM } from "@shared/metaClipGeometry";
 export { FRAME_POST_WIDTH_MM };
 
 export type Surface = "verzinkt" | "lackiert";
+/** Rahmenart: vormontierter Ständerrahmen (clinch) oder Steckrahmen S3 zum Selbstaufbau. */
+export type FrameVariant = "clinch" | "s3";
 
 export type MetaClipState = {
   lang: "de" | "en";
@@ -29,6 +31,7 @@ export type MetaClipState = {
   boeden: number; // shelves per bay (level_count)
   last: number; // shelf load kg (Fachlast)
   surface: Surface;
+  rahmen: FrameVariant;
   rear: boolean; // Rückwand
   view: number; // 0 perspective, 1 front, 2 top
   showDims: boolean; // Bemaßung in Zeichnung und 3D-Ansicht einblenden
@@ -44,6 +47,7 @@ export const DEFAULT_STATE: MetaClipState = {
   boeden: 5,
   last: 230,
   surface: "verzinkt",
+  rahmen: "clinch",
   rear: false,
   view: 0,
   showDims: true,
@@ -58,6 +62,14 @@ export type MetaClipOptions = {
   level_counts: number[];
   loads: number[];
   surfaces: string[];
+};
+
+/** Was der Katalog wirklich hergibt (GET /systems/:id/options → combinations, server/cpq/clipCatalogSync.ts). */
+export type MetaClipCombinations = {
+  frames: Array<{ variant: FrameVariant; height: number; depth: number; surface: string; feldlast: number | null }>;
+  shelves: Array<{ width: number; depth: number; load: number; surface: string }>;
+  rears: Array<{ height: number; width: number; surface: string }>;
+  diagonals: number[];
 };
 
 /**
@@ -91,6 +103,7 @@ export type CpqConfigContext = Record<string, number | string | boolean | undefi
   width: number;
   load: number;
   surface: Surface;
+  frame_variant: FrameVariant;
   accessory_quantity: number;
   verankerung_grund_quantity: number;
   verankerung_anbau_quantity: number;
@@ -111,6 +124,7 @@ export function toConfigContext(s: MetaClipState): CpqConfigContext {
     width: s.breite,
     load: s.last,
     surface: s.surface,
+    frame_variant: s.rahmen,
     // One rear panel per bay when selected; 0 → accessory skipped in the BOM.
     accessory_quantity: s.rear ? s.felder : 0,
     klemmfuss_quantity: framePartSets,
@@ -148,17 +162,21 @@ export type CpqCoreInput = {
   deliveryCountry: string;
 };
 
-export function toCpqCoreInput(s: MetaClipState): CpqCoreInput {
+/** Feldlast ohne Katalogangabe (alte Mappings ohne feldlast): bisheriger fester Wert. */
+export const FALLBACK_FELDLAST_KG = 2400;
+
+export function toCpqCoreInput(s: MetaClipState, feldlastKg: number = FALLBACK_FELDLAST_KG): CpqCoreInput {
   const coated = s.surface === "lackiert";
   return {
     systemVariant: "clip",
-    connectionType: "clinch",
+    connectionType: s.rahmen,
     frame: {
       heightMm: s.hoehe,
       depthMm: s.tiefe,
       widthMm: s.breite,
       surface: s.surface,
-      maxFeldlastKg: 2400,
+      // Feldlast des Rahmens laut Grund-/Anbauregalen im Shop (feldlastFor), sonst der alte feste Wert
+      maxFeldlastKg: feldlastKg,
       // True exactly when required — the BOM always includes the real anchor
       // kit in that case (see toConfigContext's verankerung_quantity), so this
       // reflects the actual configuration rather than blocking it unsatisfiably.
@@ -193,7 +211,7 @@ export function overallLength(s: MetaClipState): number {
 /** Stable configuration code, e.g. CLIP-2500-1000-500-2F5-230-V-NR. */
 export function buildConfigCode(s: MetaClipState): string {
   return [
-    "CLIP",
+    s.rahmen === "s3" ? "CLIP-S3" : "CLIP",
     s.hoehe,
     s.breite,
     s.tiefe,
@@ -243,4 +261,78 @@ export function reconcileWithOptions(s: MetaClipState, o: MetaClipOptions): Meta
     last: nearest(s.last, o.loads),
     surface,
   };
+}
+
+// ---- Kombinationen aus dem Katalog ----
+
+/** Eine baubare Regalzeile: Rahmen + Boden + Diagonalstab gibt es in dieser Kombination. */
+export type MetaClipTuple = Pick<MetaClipState, "rahmen" | "hoehe" | "tiefe" | "breite" | "last" | "surface"> & { feldlast: number | null };
+export type TupleKey = "rahmen" | "hoehe" | "tiefe" | "breite" | "last" | "surface";
+const TUPLE_KEYS: TupleKey[] = ["rahmen", "hoehe", "tiefe", "breite", "last", "surface"];
+
+export function buildTuples(c: MetaClipCombinations | null | undefined): MetaClipTuple[] {
+  if (!c?.frames?.length || !c.shelves?.length) return [];
+  const out: MetaClipTuple[] = [];
+  for (const f of c.frames) {
+    for (const sh of c.shelves) {
+      if (sh.depth !== f.depth || sh.surface !== f.surface) continue;
+      if (c.diagonals.length && !c.diagonals.includes(sh.width)) continue;
+      out.push({ rahmen: f.variant, hoehe: f.height, tiefe: f.depth, breite: sh.width, last: sh.load, surface: f.surface as Surface, feldlast: f.feldlast });
+    }
+  }
+  return out;
+}
+
+const matches = (t: MetaClipTuple, s: Partial<MetaClipState>, keys: TupleKey[]) => keys.every((k) => s[k] === undefined || t[k] === s[k]);
+
+/** Ist der Wert für dieses Bedienelement mit den übrigen aktuellen Einstellungen baubar? */
+export function isChoiceAvailable(s: MetaClipState, key: TupleKey, value: number | string, tuples: MetaClipTuple[]): boolean {
+  if (!tuples.length) return true;
+  const others = TUPLE_KEYS.filter((k) => k !== key);
+  return tuples.some((t) => t[key] === value && matches(t, s, others));
+}
+
+/** Auswahlwerte je Bedienelement (alle, die es in irgendeiner Kombination gibt). */
+export function choicesFor(key: TupleKey, tuples: MetaClipTuple[]): Array<number | string> {
+  const values = [...new Set(tuples.map((t) => t[key]))];
+  return typeof values[0] === "number" ? (values as number[]).sort((a, b) => a - b) : values;
+}
+
+// Was bei einem Sprung möglichst erhalten bleiben soll (höher = wichtiger)
+const KEEP_WEIGHT: Record<TupleKey, number> = { rahmen: 50, surface: 40, hoehe: 30, tiefe: 30, breite: 20, last: 10 };
+
+/**
+ * Übernimmt die Änderung und rückt die übrigen Werte auf die nächste baubare Kombination
+ * (z. B. 1500 mm Breite → Last 200 kg, weil es 1500er Böden nur mit 200 kg gibt).
+ */
+export function snapToCatalog(s: MetaClipState, change: Partial<MetaClipState>, tuples: MetaClipTuple[]): MetaClipState {
+  const next = { ...s, ...change };
+  if (!tuples.length) return next;
+  const fixed = TUPLE_KEYS.filter((k) => change[k] !== undefined);
+  const pool = tuples.filter((t) => matches(t, change, fixed));
+  const candidates = pool.length ? pool : tuples;
+  let best = candidates[0];
+  let bestCost = Number.POSITIVE_INFINITY;
+  for (const t of candidates) {
+    let cost = 0;
+    for (const k of TUPLE_KEYS) {
+      if (t[k] === next[k]) continue;
+      const a = t[k], b = next[k];
+      cost += KEEP_WEIGHT[k] + (typeof a === "number" && typeof b === "number" ? Math.abs(a - b) / 100 : 0);
+    }
+    if (cost < bestCost) { bestCost = cost; best = t; }
+  }
+  return { ...next, rahmen: best.rahmen, hoehe: best.hoehe, tiefe: best.tiefe, breite: best.breite, last: best.last, surface: best.surface };
+}
+
+/** Feldlast der gewählten Rahmen (kg) laut Katalog, sonst null. */
+export function feldlastFor(s: MetaClipState, tuples: MetaClipTuple[]): number | null {
+  const t = tuples.find((x) => matches(x, s, TUPLE_KEYS));
+  return t?.feldlast ?? null;
+}
+
+/** Gibt es eine Rückwand in Höhe × Feldbreite × Oberfläche? Ohne Katalogdaten (null) offen lassen. */
+export function rearAvailable(s: MetaClipState, c: MetaClipCombinations | null): boolean {
+  if (!c) return true;
+  return c.rears.some((r) => r.height === s.hoehe && r.width === s.breite && r.surface === s.surface);
 }

@@ -5526,6 +5526,22 @@
         "pending": "Pending",
         "approved": "Approved",
         "rejected": "Rejected"
+      },
+      "clipSync": {
+        "button": "Sync CLIP from shop catalogue",
+        "title": "Shelf planner META CLIP: sync with the shop catalogue",
+        "description": "Derives the mappings for pre-assembled frames and S3 plug-in frames from the product names in the shop mirror. Frames without a documented bay load and parts from other systems are not offered; nothing is deleted, only deactivated.",
+        "loading": "Reading shop catalogue…",
+        "summary": "Target: {{specs}} parts, {{unchanged}} of them unchanged.",
+        "createsSystem": "The META CLIP system is missing and will be created with all component types.",
+        "create": "New",
+        "update": "Changed",
+        "deactivate": "Deactivated",
+        "skipped": "Skipped",
+        "nothingToDo": "Everything is up to date.",
+        "apply": "Apply",
+        "doneTitle": "Sync applied",
+        "doneDescription": "{{create}} new, {{update}} changed, {{deactivate}} deactivated."
       }
     },
     "review": {
@@ -6835,7 +6851,10 @@
       "invalid_customer_mail_run": "Mailing incomplete (mail type, template, sender and subject required)",
       "failed_to_create_customer_mail_run": "Failed to create mailing",
       "failed_to_load_customer_mail_effect": "Failed to load effect",
-      "beitrag_nicht_gefunden": "Post not found"
+      "beitrag_nicht_gefunden": "Post not found",
+      "regalplaner_fur_diesen_shop_nicht_freigeschaltet": "Shelf planner is not enabled for this shop",
+      "regalplaner_konnte_nicht_gestartet_werden": "Shelf planner could not be started",
+      "abgleich_fehlgeschlagen": "Sync failed"
     }
   },
   "roomPlanner": {

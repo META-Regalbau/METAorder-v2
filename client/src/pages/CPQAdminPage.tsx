@@ -41,6 +41,7 @@ import CpqCompatibilityMatrix from "@/components/cpq/CpqCompatibilityMatrix";
 import CpqRuleConditionEditor from "@/components/cpq/CpqRuleConditionEditor";
 import CpqComponentSidebar from "@/components/cpq/CpqComponentSidebar";
 import CpqDetailPanel from "@/components/cpq/CpqDetailPanel";
+import CpqClipCatalogSync from "@/components/cpq/CpqClipCatalogSync";
 
 import { useTranslation, Trans } from "react-i18next";
 import { useLocaleFormat } from "@/hooks/useLocaleFormat";
@@ -402,10 +403,13 @@ export default function CPQAdminPage() {
           <Card>
             <div className="p-4 flex justify-between items-center border-b">
               <h2 className="font-semibold">{t("cpq.admin.systems.title")}</h2>
-              <Button onClick={() => setShowCreateSystem(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                {t("cpq.admin.systems.newSystem")}
-              </Button>
+              <div className="flex gap-2">
+                <CpqClipCatalogSync />
+                <Button onClick={() => setShowCreateSystem(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t("cpq.admin.systems.newSystem")}
+                </Button>
+              </div>
             </div>
             {systemsLoading ? (
               <div className="p-4"><Skeleton className="h-24 w-full" /></div>

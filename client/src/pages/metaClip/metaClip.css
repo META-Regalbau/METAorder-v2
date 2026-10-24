@@ -91,6 +91,12 @@
 .mclip .chips button { flex: 1 1 0; min-width: 44px; height: 44px; padding: 0 6px; border-radius: 2px; cursor: pointer; font-family: var(--font-sans); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; background: var(--meta-white); color: var(--fg-2); border: 1px solid var(--meta-steel); }
 .mclip .chips button.on { color: var(--meta-red); border-color: var(--meta-red); }
 .mclip .chips button:disabled { color: var(--fg-disabled); cursor: not-allowed; background: var(--meta-mist); }
+/* In der aktuellen Kombination nicht lieferbar: wählbar, die übrigen Werte rücken nach */
+.mclip .chips button.dim { color: var(--fg-3); background: var(--meta-mist); border-style: dashed; }
+.mclip .tick.dim { opacity: 0.45; }
+/* Eingebettet in die Shop-Seite: Höhe nicht aus vh (der Rahmen wächst mit dem Inhalt, sonst Endlosschleife) */
+.mclip.embed .stage { min-height: 600px; }
+.mclip.embed .viewport { min-height: 440px; }
 .mclip .slider { display: flex; flex-direction: column; gap: 2px; }
 .mclip input[type=range] { width: 100%; height: 36px; margin: 0; accent-color: var(--meta-red); cursor: pointer; }
 .mclip .ticks { display: flex; justify-content: space-between; }

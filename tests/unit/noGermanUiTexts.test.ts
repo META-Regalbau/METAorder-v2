@@ -18,11 +18,12 @@ const ALLOWED: Record<string, number> = {
   "components/offers/CpqRegalArViewer.tsx": 4,
   "components/offers/CpqRoomArViewer.tsx": 4,
   "components/offers/OfferLineItemGlbPreview.tsx": 4,
-  // oeffentliche Kundenseiten (Angebotslink, Konfigurator-Link aus dem Shop)
+  // oeffentliche Kundenseiten (Angebotslink, Konfigurator-Link aus dem Shop, Regalplaner im Shop)
   "pages/PublicOfferPage.tsx": 9,
   "pages/PublicCpqConfiguratorPage.tsx": 4,
+  "pages/PublicRegalplanerPage.tsx": 3,
   // META-CLIP-Konfigurator: eigenes DE/EN-Textpaket nach Design, auch im Shop; Kundensuche gehoert dazu
-  "pages/CPQConfiguratorPage.tsx": 37,
+  "pages/CPQConfiguratorPage.tsx": 44,
   "components/ShopwareCustomerSearch.tsx": 5,
   // Inhalte statt Oberflaeche: Vorlagen fuer Benachrichtigungen (mit {{...}}-Platzhaltern der Regeln)
   // und die Mahn-E-Mail an Kunden

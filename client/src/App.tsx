@@ -73,6 +73,7 @@ import LoginPage from "@/pages/LoginPage";
 import NotFound from "@/pages/not-found";
 import PublicOfferPage from "@/pages/PublicOfferPage";
 import PublicCpqConfiguratorPage from "@/pages/PublicCpqConfiguratorPage";
+import PublicRegalplanerPage from "@/pages/PublicRegalplanerPage";
 import PortalPasswordRequestPage from "@/pages/PortalPasswordRequestPage";
 import GlobalSkeletonOverlay from "@/components/GlobalSkeletonOverlay";
 import MarginDetailsGuard from "@/components/MarginDetailsGuard";
@@ -333,6 +334,7 @@ function App() {
       <Switch>
         <Route path="/angebot/:token" component={PublicOfferPage} />
         <Route path="/konfigurator/:token" component={PublicCpqConfiguratorPage} />
+        <Route path="/regalplaner" component={PublicRegalplanerPage} />
         <Route path="/portal-zugang" component={PortalPasswordRequestPage} />
         <Route component={AuthenticatedApp} />
       </Switch>

@@ -109,6 +109,8 @@ const DIMENSIONED_ROLES = new Set(["frame", "beam", "shelf", "diagonal"]);
 const EXTRA_MATCH_ATTRS: Array<{ configKey: string; attrKeys: string[] }> = [
   { configKey: "load", attrKeys: ["load", "maxFachlastKg", "fachlast"] },
   { configKey: "surface", attrKeys: ["surface", "oberflaeche"] },
+  // Rahmenart CLIP: vormontiert (clinch) oder Steckrahmen (s3), siehe clipCatalogSync.ts
+  { configKey: "frame_variant", attrKeys: ["frameVariant"] },
 ];
 
 /** Shopware-Maße können Floats sein – Vergleich mit ±1 mm Toleranz. */
@@ -116,6 +118,11 @@ const DIMENSION_TOLERANCE_MM = 1;
 
 function dimensionsEqual(a: number, b: number): boolean {
   return Math.abs(a - b) <= DIMENSION_TOLERANCE_MM;
+}
+
+function hasAnyAttr(mapping: CpqProductMapping, keys: string[]): boolean {
+  const attrs = mapping.attributes as Record<string, unknown> | null | undefined;
+  return !!attrs && keys.some((k) => attrs[k] !== undefined);
 }
 
 function isDimensionedRole(role: string): boolean {
@@ -274,7 +281,8 @@ export async function resolveBillOfMaterials(
     const candidates = list.filter((m) => matchMappingToConfig(m, normalizedRole, result.config, getProductByNumber));
     let mapping = candidates[0];
     if (!mapping && list.length > 0) {
-      if (isDimensionedRole(normalizedRole)) {
+      // Zubehör mit Maßen (Rückwand): ohne passende Größe kein Ersatzartikel in anderer Größe
+      if (isDimensionedRole(normalizedRole) || (ROLE_ATTR_MAP[normalizedRole] && list.some((m) => hasAnyAttr(m, ROLE_ATTR_MAP[normalizedRole])))) {
         errors.push(
           `${ct.name}: Kein passender Artikel für ${formatDimensionMismatch(normalizedRole, result.config)} gefunden`
         );

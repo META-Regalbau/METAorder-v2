@@ -133,7 +133,7 @@ describe("eigene fetch-Aufrufe (apiErrorFromBody)", () => {
       return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : /\.tsx?$/.test(e.name) ? [path.join(d, e.name)] : []));
     })(dir);
     const pattern = /throw new Error\(\s*\(?(data|json|j|body|err|result|payload|errData|errorData|errBody|resp|response)\)?\??\.(error|message)/;
-    const allowed = ["pages/PublicOfferPage.tsx", "pages/PublicCpqConfiguratorPage.tsx", "pages/CrossSellingRulesPage.tsx", "pages/B2BBudgetsPage.tsx"];
+    const allowed = ["pages/PublicOfferPage.tsx", "pages/PublicCpqConfiguratorPage.tsx", "pages/PublicRegalplanerPage.tsx", "pages/CrossSellingRulesPage.tsx", "pages/B2BBudgetsPage.tsx"];
     const offenders = files
       .filter((f) => pattern.test(fs.readFileSync(f, "utf8")))
       .map((f) => path.relative(dir, f))

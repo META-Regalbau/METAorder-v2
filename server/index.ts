@@ -14,6 +14,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupAuth } from "./auth/auth";
 import { storage } from "./storage";
+import { EMBEDDABLE_PATH_RE, embedFrameAncestors } from "./cpq/cpqEmbed";
 import { ensureVectorExtension } from "./db";
 import { seedDatabase } from "./seedData";
 import { startCrossSellScheduler } from "./cross-selling/crossSellScheduler";
@@ -103,9 +104,16 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 
 // Security Headers
-app.use((_req, res, next) => {
-  // Prevent clickjacking
-  res.setHeader("X-Frame-Options", "DENY");
+app.use(async (req, res, next) => {
+  // Prevent clickjacking. Ausnahme: die Gast-Seite des Regalplaners, die der Shop einbettet
+  // (frame-ancestors = Shop-Adressen der Mandanten, server/cpq/cpqEmbed.ts).
+  let frameAncestors = "";
+  if (EMBEDDABLE_PATH_RE.test(req.path)) {
+    const origins = await embedFrameAncestors().catch(() => [] as string[]);
+    frameAncestors = `; frame-ancestors 'self' ${origins.join(" ")}`.trimEnd();
+  } else {
+    res.setHeader("X-Frame-Options", "DENY");
+  }
   // Prevent MIME type sniffing
   res.setHeader("X-Content-Type-Options", "nosniff");
   // Enable XSS protection
@@ -115,7 +123,7 @@ app.use((_req, res, next) => {
   // Content Security Policy
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: http: blob: http://localhost:8090 http://127.0.0.1:8090; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: http://localhost:7242 http://127.0.0.1:7242 https://www.gstatic.com"
+    `default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: http: blob: http://localhost:8090 http://127.0.0.1:8090; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' blob: http://localhost:7242 http://127.0.0.1:7242 https://www.gstatic.com${frameAncestors}`
   );
   next();
 });
