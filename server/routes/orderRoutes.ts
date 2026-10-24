@@ -781,6 +781,8 @@ export function registerOrderRoutes(app: Express): void {
   app.get("/api/orders/:orderId/documents", requireAuth, async (req, res) => {
     if (!isShopwareId(req.params.orderId)) return res.status(400).json({ error: "Invalid order id" });
     try {
+      const denied = await checkOrderChannelAccess(req.params.orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) return res.status(denied.status).json({ error: denied.error });
       const settings = await storage.getShopwareSettings();
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
@@ -798,10 +800,12 @@ export function registerOrderRoutes(app: Express): void {
 
   app.get("/api/orders/:orderId/document/:documentId/:deepLinkCode", requireAuth, async (req, res) => {
     // Beide Werte landen im Pfad der Shopware-Admin-API (siehe server/shopware/safeShopwareUrl.ts)
-    if (!isShopwareId(req.params.documentId) || !/^[A-Za-z0-9_-]{1,64}$/.test(req.params.deepLinkCode)) {
+    if (!isShopwareId(req.params.orderId) || !isShopwareId(req.params.documentId) || !/^[A-Za-z0-9_-]{1,64}$/.test(req.params.deepLinkCode)) {
       return res.status(400).json({ error: "Invalid document id" });
     }
     try {
+      const denied = await checkOrderChannelAccess(req.params.orderId, await getSalesChannelFilter(req), (req as any).tenantId ?? null);
+      if (denied) return res.status(denied.status).json({ error: denied.error });
       const settings = await storage.getShopwareSettings();
       if (!settings) {
         return res.status(400).json({ error: "Shopware settings not configured" });
@@ -809,6 +813,11 @@ export function registerOrderRoutes(app: Express): void {
 
       const { documentId, deepLinkCode } = req.params;
       const client = new ShopwareClient(settings);
+      // Das Dokument muss zu dieser Bestellung gehören (sonst ließe sich die Kanalprüfung über eine fremde Bestell-ID umgehen)
+      const orderDocuments = await client.fetchOrderDocuments(req.params.orderId);
+      if (!orderDocuments.some((d) => d.id === documentId)) {
+        return res.status(404).json({ error: "Document not found" });
+      }
       
       const pdfBlob = await client.downloadDocumentPdf(documentId, deepLinkCode);
       

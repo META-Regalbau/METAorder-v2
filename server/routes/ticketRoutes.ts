@@ -86,6 +86,42 @@ function validateStoredAutomationRule(
   });
 }
 
+/**
+ * Zugriff auf ein Ticket (Detail und alles, was daran hängt: Kommentare, Verlauf, Anhänge).
+ * Mit Bestellung: Kanal der Bestellung muss erlaubt sein; ohne Bestellung: nur Ersteller oder Zuständiger.
+ * Administratoren (Kanalfilter null) sehen alles. Früher prüfte das nur die Detailansicht.
+ */
+async function canAccessTicket(req: any, ticket: { orderId?: string | null; createdByUserId?: string | null; assignedToUserId?: string | null }): Promise<boolean> {
+  const allowedChannelIds = await getSalesChannelFilter(req);
+  if (allowedChannelIds === null) return true;
+  const currentUserId = req.user?.id;
+  if (!ticket.orderId) return ticket.createdByUserId === currentUserId || ticket.assignedToUserId === currentUserId;
+  const settings = await storage.getShopwareSettings();
+  if (!settings) return false;
+  try {
+    const order = (await new ShopwareClient(settings).fetchOrdersByIds([ticket.orderId])).get(ticket.orderId);
+    return !!order && allowedChannelIds.includes(order.salesChannelId);
+  } catch (error) {
+    moduleLog.error({ err: error }, "[Security] Error checking ticket access:");
+    return false;
+  }
+}
+
+/** Middleware: Ticket aus req.params[param] laden und Zugriff prüfen (404/403). */
+function requireTicketAccess(param: string) {
+  return async (req: any, res: any, next: any) => {
+    try {
+      const ticket = await storage.getTicket(req.params[param]);
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+      if (!(await canAccessTicket(req, ticket))) return res.status(403).json({ error: "You don't have access to this ticket" });
+      next();
+    } catch (error) {
+      moduleLog.error({ err: error }, "[Security] Error checking ticket access:");
+      res.status(500).json({ error: "Failed to check ticket access" });
+    }
+  };
+}
+
 export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void {
   const { useObjectStorage } = deps;
 
@@ -530,44 +566,12 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         return res.status(401).json({ error: "User not authenticated" });
       }
       
-      const allowedChannelIds = await getSalesChannelFilter(req);
-
       const ticket = await storage.getTicket(req.params.id);
       if (!ticket) {
         return res.status(404).json({ error: "Ticket not found" });
       }
-      
-      // SECURITY: Check sales channel access (indirect via orderId)
-      if (ticket.orderId && allowedChannelIds !== null) {
-          // Fetch the specific order to get salesChannelId
-          const settings = await storage.getShopwareSettings();
-          let hasAccess = false;
-          
-        if (settings) {
-            try {
-              const client = new ShopwareClient(settings);
-              const ordersMap = await client.fetchOrdersByIds([ticket.orderId]);
-              const order = ordersMap.get(ticket.orderId);
-              
-            if (order && allowedChannelIds.includes(order.salesChannelId)) {
-                hasAccess = true;
-              }
-            } catch (error) {
-            moduleLog.error({ err: error }, "[Security] Error checking ticket access:");
-            }
-          }
-          
-          if (!hasAccess) {
-            return res.status(403).json({ error: "You don't have access to this ticket" });
-          }
-      }
-      
-      // SECURITY: Standalone tickets (no orderId) require creator/assignee check for non-admins
-      if (!ticket.orderId && allowedChannelIds !== null) {
-        // Only visible if user is creator or assignee
-        if (ticket.createdByUserId !== currentUserId && ticket.assignedToUserId !== currentUserId) {
-          return res.status(403).json({ error: "You don't have access to this ticket" });
-        }
+      if (!(await canAccessTicket(req, ticket))) {
+        return res.status(403).json({ error: "You don't have access to this ticket" });
       }
       // Admin (allowedChannelIds = null) has full access to all tickets
       
@@ -1085,7 +1089,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   // ============================================
 
   // Get comments for a ticket
-  app.get("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, async (req, res) => {
+  app.get("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const comments = await storage.getTicketComments(req.params.ticketId);
       const users = await storage.getAllUsers();
@@ -1112,7 +1116,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Create comment on a ticket
-  app.post("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, async (req, res) => {
+  app.post("/api/tickets/:ticketId/comments", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const userId = (req.user as any).id;
       const validated = insertTicketCommentSchema.parse({
@@ -1243,7 +1247,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   // ============================================
 
   // Get activity log for a ticket
-  app.get("/api/tickets/:ticketId/activity", requireAuth, requireViewTickets, async (req, res) => {
+  app.get("/api/tickets/:ticketId/activity", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const activityLogs = await storage.getTicketActivityLog(req.params.ticketId);
       const users = await storage.getAllUsers();
@@ -1310,7 +1314,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   const getObjectKey = (filePath: string): string => filePath.substring(4); // Remove "obj:" prefix
 
   // Get attachments for a ticket
-  app.get("/api/tickets/:ticketId/attachments", requireAuth, requireViewTickets, async (req, res) => {
+  app.get("/api/tickets/:ticketId/attachments", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const attachments = await storage.getTicketAttachments(req.params.ticketId);
       res.json(attachments);
@@ -1324,6 +1328,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   app.post("/api/tickets/:ticketId/attachments", 
     requireAuth, 
     requireViewTickets,
+    requireTicketAccess("ticketId"),
     uploadRateLimiter,
     attachmentUpload.array('files', 10), restoreTenantContext,
     async (req, res) => {
@@ -1421,6 +1426,9 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
         moduleLog.error(`[Preview] Ticket not found for attachment: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Associated ticket not found" });
       }
+      if (!(await canAccessTicket(req, ticket))) {
+        return res.status(403).json({ error: "You don\'t have access to this ticket" });
+      }
 
       // Check if this is an Object Storage file (prefix: "obj:")
       if (isObjectStorageKey(attachment.filePath)) {
@@ -1510,6 +1518,9 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
       if (!ticket) {
         moduleLog.error(`[Download] Ticket not found for attachment: ${req.params.attachmentId}`);
         return res.status(404).json({ error: "Associated ticket not found" });
+      }
+      if (!(await canAccessTicket(req, ticket))) {
+        return res.status(403).json({ error: "You don\'t have access to this ticket" });
       }
 
       // Check if this is an Object Storage file (prefix: "obj:")
@@ -1643,7 +1654,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Get unread counts for a ticket (comments and attachments)
-  app.get("/api/tickets/:ticketId/unread-counts", requireAuth, requireViewTickets, async (req, res) => {
+  app.get("/api/tickets/:ticketId/unread-counts", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const userId = (req.user as any).id;
       const ticketId = req.params.ticketId;
@@ -1657,7 +1668,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Mark all comments in a ticket as read
-  app.post("/api/tickets/:ticketId/comments/mark-read", requireAuth, requireViewTickets, async (req, res) => {
+  app.post("/api/tickets/:ticketId/comments/mark-read", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const userId = (req.user as any).id;
       const ticketId = req.params.ticketId;
@@ -1671,7 +1682,7 @@ export function registerTicketRoutes(app: Express, deps: TicketRouteDeps): void 
   });
 
   // Mark all attachments in a ticket as read
-  app.post("/api/tickets/:ticketId/attachments/mark-read", requireAuth, requireViewTickets, async (req, res) => {
+  app.post("/api/tickets/:ticketId/attachments/mark-read", requireAuth, requireViewTickets, requireTicketAccess("ticketId"), async (req, res) => {
     try {
       const userId = (req.user as any).id;
       const ticketId = req.params.ticketId;

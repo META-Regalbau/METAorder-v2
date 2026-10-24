@@ -20,7 +20,11 @@ import type { Server } from "node:http";
 vi.mock("../../server/auth/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../server/auth/auth")>();
   const pass = (req: any, _res: any, next: () => void) => {
-    req.user = { id: "admin" };
+    // Standard: Administrator; x-test-actor: manager = „Einstellungen verwalten“ ohne Administrator-Rolle
+    req.user =
+      req.headers["x-test-actor"] === "manager"
+        ? { id: "manager", role: "employee", roleDetails: { name: "Teamleitung", permissions: { manageSettings: true, manageOffers: true } } }
+        : { id: "admin", role: "admin", roleDetails: { name: "Administrator", permissions: {} } };
     req.tenantId = req.headers["x-test-tenant"] === "none" ? null : "tenant-a";
     next();
   };
@@ -241,6 +245,20 @@ describe("Einstellungen: Integrations-Schluessel mit Benutzer", () => {
       ["n8n", "zora"],
       ["ohne", null],
     ]);
+  });
+
+  it("ohne Administrator-Rolle: nur Benutzer ohne Rechte über die eigenen hinaus (auch nicht der Ersatz-Benutzer)", async () => {
+    const asManager = { "x-test-actor": "manager" };
+    const denied = { status: 403, body: { error: "Diesem Benutzer kann nur ein Administrator einen Integrations-Schlüssel zuordnen." } };
+    expect(await call("POST", "/api/settings/integration-api-keys", { name: "a", userId: "zora" }, asManager)).toEqual(denied);
+    expect(await call("POST", "/api/settings/integration-api-keys", { name: "a", userId: "drafts" }, asManager)).toEqual(denied);
+    expect(await call("POST", "/api/settings/integration-api-keys", { name: "a", userId: "legacy-admin" }, asManager)).toMatchObject({ status: 403 });
+    // Ersatz-Benutzer n8n-service hat hier die Administrator-Rolle
+    expect(await call("POST", "/api/settings/integration-api-keys", { name: "ohne" }, asManager)).toEqual(denied);
+    expect(keys).toHaveLength(0);
+    expect((await call("POST", "/api/settings/integration-api-keys", { name: "ok", userId: "clerk" }, asManager)).status).toBe(200);
+    keys.push({ id: "k1", tenantId: "tenant-a", name: "", createdAt: new Date(), userId: "clerk", hash: "h1" });
+    expect(await call("PATCH", "/api/settings/integration-api-keys/k1", { userId: "anna" }, asManager)).toEqual(denied);
   });
 
   it("PATCH: Benutzer wechseln, zuruecksetzen; fremder Schluessel 404, fremder Benutzer 400", async () => {
