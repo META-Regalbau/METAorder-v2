@@ -13,18 +13,31 @@
  *   rechnet damit der Shop selbst; METAorder zeigt ohne Anmeldung nur Katalogpreise.
  * Umgekehrt meldet das Skript beim Scrollen, wie viel vom Rahmen oben verdeckt ist (viewport, auch unter einer
  * mitlaufenden Kopfzeile). Damit bleibt die 3D-Ansicht am Desktop stehen, während man die Einstellungen scrollt.
+ *
+ * Produktseite eines CLIP-Grund- oder Anbauregals (verzinkt oder RAL 7035): Knopf „Im Regalplaner anpassen“ unter
+ * dem Warenkorb-Knopf. Ein Klick öffnet den Planer unter Bild und Kaufbox, erst dann lädt der iframe. Maße, Ebenen,
+ * Fachlast und Oberfläche kommen aus dem Artikelnamen (rp=<Konfigurations-Code>, wie buildConfigCode in
+ * client/src/lib/metaClipCpq.ts); ein Grundregal startet mit 1 Feld, ein Anbauregal mit 2 (Grundregal + Anbauregal).
  */
 var MetaRegalplaner = (function () {
   'use strict';
 
   var CONFIG = {
-    version: '3',
+    version: '4',
     // Nur der Onlineshop „META Regalbau DE" (gleiche ID im Testshop und im Live-Shop).
     salesChannelIds: ['018ec134507f703b82a76467791e7e61'],
     source: 'metaorder-regalplaner',
     maxItems: 60,
     maxQuantity: 999,
-    minHeight: 600
+    minHeight: 600,
+    // METAorder für Produktseiten (die Seite /regalplaner nennt die Adresse selbst in data-app)
+    appUrl: 'https://p-bbpye5.project.space',
+    systems: { 'META CLIP': 'CLIP', 'META CLIP S3': 'CLIP-S3' },
+    surfaces: { verzinkt: 'V', 'RAL 7035': 'L' },
+    // Weitere Namensteile, die der Planer nicht abbildet, aber die Maße nicht ändern
+    ignoredSegments: ['Längsriegel'],
+    productButton: 'Im Regalplaner anpassen',
+    productText: 'Maße, Felder und Böden ändern, in 3D ansehen und als Stückliste in den Warenkorb legen.'
   };
 
   /** Adresse von METAorder aus data-app, nur https (http nur für localhost beim Testen). */
@@ -61,7 +74,31 @@ var MetaRegalplaner = (function () {
     return Math.max(0, Math.round(coveredBottom - frameTop));
   }
 
-  var api = { config: CONFIG, appOrigin: appOrigin, cartPositions: cartPositions, hiddenTop: hiddenTop };
+  /**
+   * Konfigurations-Code aus dem Artikelnamen, z. B. „META CLIP S3 | Fachbodenregal | Anbauregal | 2000 x 1000 x 500 mm |
+   * Fachlast 230 kg | 5 Ebenen | verzinkt“ → „CLIP-S3-2000-1000-500-2F5-230-V-NR“. null bei anderen Artikeln
+   * (andere Systeme und Farben, doppelseitig, unbekannte Namensteile).
+   */
+  function productConfigCode(name) {
+    var seg = String(name || '').replace(/\s+/g, ' ').trim().split(' | ');
+    var system = CONFIG.systems[seg[0]];
+    var role = /^(Grund|Anbau)regal$/.exec(seg[2] || '');
+    if (!system || seg[1] !== 'Fachbodenregal' || !role) return null;
+    var dims = null, load = null, levels = null, surface = null;
+    for (var i = 3; i < seg.length; i++) {
+      var m;
+      if ((m = /^(\d{4}) x (\d{3,4}) x (\d{3}) mm$/.exec(seg[i])) && !dims) dims = m;
+      else if ((m = /^Fachlast (\d{2,4}) kg$/.exec(seg[i])) && !load) load = m[1];
+      else if ((m = /^(\d{1,2}) Ebenen$/.exec(seg[i])) && !levels) levels = m[1];
+      else if (CONFIG.surfaces[seg[i]] && !surface) surface = CONFIG.surfaces[seg[i]];
+      else if (CONFIG.ignoredSegments.indexOf(seg[i]) === -1) return null;
+    }
+    if (!dims || !load || !levels || !surface) return null;
+    var fields = role[1] === 'Grund' ? 1 : 2;
+    return [system, dims[1], dims[2], dims[3], fields + 'F' + levels, load, surface, 'NR'].join('-');
+  }
+
+  var api = { config: CONFIG, appOrigin: appOrigin, cartPositions: cartPositions, hiddenTop: hiddenTop, productConfigCode: productConfigCode };
   if (typeof window === 'undefined' || typeof document === 'undefined') return api;
   if (CONFIG.salesChannelIds.indexOf(window.salesChannelId) === -1) return api;
 
@@ -140,10 +177,11 @@ var MetaRegalplaner = (function () {
   function mount(slot) {
     var origin = appOrigin(slot.getAttribute('data-app') || '');
     if (!origin || slot.querySelector('iframe')) return;
+    var code = slot.getAttribute('data-config') || '';
     var frame = document.createElement('iframe');
     frame.className = 'meta-rp__frame';
     frame.title = 'Regalplaner META CLIP';
-    frame.src = origin + '/regalplaner?shop=' + encodeURIComponent(window.location.origin);
+    frame.src = origin + '/regalplaner?shop=' + encodeURIComponent(window.location.origin) + (code ? '&rp=' + encodeURIComponent(code) : '');
     frame.setAttribute('allow', 'fullscreen');
     frame.style.height = Math.max(CONFIG.minHeight, 1100) + 'px';
     slot.innerHTML = '';
@@ -180,8 +218,56 @@ var MetaRegalplaner = (function () {
     });
   }
 
+  function startProduct() {
+    var buy = document.querySelector('.product-detail-buy');
+    var title = buy && buy.querySelector('.product-detail-name');
+    var anchor = buy && buy.querySelector('.product-detail-form-container');
+    if (!title || !anchor || document.querySelector('.meta-rp-product')) return;
+    var code = productConfigCode(title.textContent);
+    if (!code) return;
+
+    var box = document.createElement('div');
+    box.className = 'meta-rp-product';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-outline-primary meta-rp-product__button';
+    button.textContent = CONFIG.productButton;
+    button.setAttribute('aria-expanded', 'false');
+    button.setAttribute('aria-controls', 'meta-rp-product-panel');
+    var text = document.createElement('span');
+    text.className = 'meta-rp-product__text';
+    text.textContent = CONFIG.productText;
+    box.appendChild(button);
+    box.appendChild(text);
+    anchor.insertAdjacentElement('afterend', box);
+
+    // Planer unter Bild und Kaufbox in voller Breite, nicht in der schmalen Kaufbox-Spalte
+    var panel = document.createElement('section');
+    panel.id = 'meta-rp-product-panel';
+    panel.className = 'meta-rp-product-panel';
+    panel.setAttribute('aria-label', 'Regalplaner META CLIP');
+    panel.hidden = true;
+    var slot = document.createElement('div');
+    slot.className = 'meta-rp';
+    slot.setAttribute('data-app', CONFIG.appUrl);
+    slot.setAttribute('data-config', code);
+    panel.appendChild(slot);
+    var block = buy.closest('.cms-block') || buy.closest('.row') || buy;
+    block.insertAdjacentElement('afterend', panel);
+
+    button.addEventListener('click', function () {
+      var open = panel.hidden;
+      panel.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+      if (!open) return;
+      mount(slot);
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+
   function start() {
     document.querySelectorAll('[data-meta-regalplaner]').forEach(mount);
+    startProduct();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
