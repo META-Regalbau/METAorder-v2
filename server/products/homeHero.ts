@@ -6,7 +6,7 @@
 // - Telefon und Zeiten wie Beratungskachel der Branchenseiten (CONTACT)
 // - „Nur B2B Verkauf“ aus der Vorteilsleiste des Shops
 import { CONTACT } from "./industryPages";
-import { esc, industryPageCss, scopeCss } from "./industryPageHtml";
+import { esc, escHref, industryPageCss, scopeCss } from "./industryPageHtml";
 import type { IndustryContact } from "@shared/shopContent";
 
 /** Kennzeichen der eigenen Fassung im Shop-HTML (Schreibskript, Prüfung) */
@@ -101,7 +101,7 @@ const ICON_PHONE =
  * `h` Inhalt, `contact` Telefon/Zeiten; Standard = Ausgangsdaten oben.
  */
 export function homeHeroHtml(image: string | null, scope = ".mbp", h: HomeHero = HOME_HERO, contact: IndustryContact = CONTACT): string {
-  const cats = h.categories.links.map((l) => `<a href="${esc(l.href)}">${esc(l.label)}</a>`).join("");
+  const cats = h.categories.links.map((l) => `<a href="${escHref(l.href)}">${esc(l.label)}</a>`).join("");
   return `<style>${industryPageCss(scope)}\n${scopeCss(HERO_CSS, scope)}</style><div class="${scope.slice(1)}" ${HOME_HERO_MARKER}><section class="hh">
   ${image ? `<img class="hh-bg" src="${esc(image)}" alt="${esc(HOME_HERO_IMAGE_ALT)}" fetchpriority="high">` : ""}
   <div class="wrap hh-inner"><div class="hh-text">
@@ -109,10 +109,10 @@ export function homeHeroHtml(image: string | null, scope = ".mbp", h: HomeHero =
     <h1 class="hh-title">${esc(h.title)}</h1>
     <p class="hh-lead">${esc(h.lead)}</p>
     <div class="hh-cta">
-      <a class="btn" href="${esc(h.primary.href)}">${ICON_CONFIG}${esc(h.primary.label)}</a>
+      <a class="btn" href="${escHref(h.primary.href)}">${ICON_CONFIG}${esc(h.primary.label)}</a>
       <a class="hh-tel" href="tel:${esc(contact.tel)}">${ICON_PHONE}<span><strong>${esc(h.secondary.label)} ${esc(contact.phone)}</strong><small>Mo–Fr ${esc(contact.hours.replace(/ bis /, "–"))}</small></span></a>
     </div>
   </div></div>
-  <nav class="hh-cats" aria-label="${esc(h.categories.label)}"><div class="wrap"><b>${esc(h.categories.intro)}</b>${cats}<a class="hh-more" href="${esc(h.more.href)}">${esc(h.more.label)} →</a></div></nav>
+  <nav class="hh-cats" aria-label="${esc(h.categories.label)}"><div class="wrap"><b>${esc(h.categories.intro)}</b>${cats}<a class="hh-more" href="${escHref(h.more.href)}">${esc(h.more.label)} →</a></div></nav>
 </section></div>`;
 }

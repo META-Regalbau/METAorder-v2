@@ -447,13 +447,19 @@ var MetaQuickConfigurator = (function () {
     return parts.length ? '?' + parts.join('&') : '';
   }
 
+  // Kaputte Kodierung (z. B. einzelnes „%“) wirft sonst URIError und der Konfigurator startet nicht
+  function decode(part) {
+    try { return decodeURIComponent(part.replace(/\+/g, ' ')); } catch (e) { return null; }
+  }
+
   function readQuery(search) {
     var q = {};
     String(search || '').replace(/^\?/, '').split('&').forEach(function (pair) {
       if (!pair) return;
       var i = pair.indexOf('=');
-      var k = decodeURIComponent((i < 0 ? pair : pair.slice(0, i)).replace(/\+/g, ' '));
-      var v = decodeURIComponent((i < 0 ? '' : pair.slice(i + 1)).replace(/\+/g, ' '));
+      var k = decode(i < 0 ? pair : pair.slice(0, i));
+      var v = decode(i < 0 ? '' : pair.slice(i + 1));
+      if (k == null || v == null) return;
       // Adressen der ersten Fassung (nur Fachbodenregale) gelten weiter
       if (k === 'fachlast') k = 'last';
       Object.keys(PARAMS).forEach(function (key) {

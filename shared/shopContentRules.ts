@@ -7,6 +7,7 @@
 import { COMPETITOR_NAMES } from "./competitorNames";
 import {
   INDUSTRY_NOTE_KEYS,
+  isSafeHref,
   resolveIndustryPage,
   type HomeMondu,
   type HomeRabatt,
@@ -120,7 +121,8 @@ export function checkIndustryPage(page: IndustryPage, ctx: Ctx = {}): ShopConten
   htmlRule("planning.example.warn", page.planning.example?.warn, issues);
 
   page.areas.forEach((a, i) => {
-    if (/^[a-z][a-z0-9+.-]*:/i.test(a.linkTarget)) issues.push({ level: "error", rule: "linkTarget", path: `areas.${i}.linkTarget` });
+    // Suchbegriff oder Pfad/Sprungmarke; kein Schema (javascript:) und kein //fremder-host
+    if (/^[a-z][a-z0-9+.-]*:/i.test(a.linkTarget) || (/^[/#]/.test(a.linkTarget) && !isSafeHref(a.linkTarget))) issues.push({ level: "error", rule: "linkTarget", path: `areas.${i}.linkTarget` });
   });
   if (page.project.link && !/^https:\/\//.test(page.project.link.href)) issues.push({ level: "error", rule: "linkHttps", path: "project.link.href" });
 

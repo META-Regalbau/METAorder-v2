@@ -2,7 +2,7 @@
 // (scripts/writeIndustryPages.ts, HTML-Element der Erlebniswelten). Das Shop-HTML-Element laesst eigenes CSS zu;
 // dort wird das Stylesheet auf den Seitenrahmen `.mbp` begrenzt, damit Theme und Seite sich nicht stoeren.
 import { CONTACT, HOME_TEASER, fillPrices, formatEuro, type IndustryIcon, type IndustryNote, type IndustryNoteKey, type IndustryPage } from "./industryPages";
-import type { HomeTeaser, IndustryContact } from "@shared/shopContent";
+import { isSafeHref, type HomeTeaser, type IndustryContact } from "@shared/shopContent";
 
 export type IndustryShopProduct = { id?: string; name: string; priceNet: number; deliveryTime?: string; url?: string | null; image?: string | null };
 
@@ -18,6 +18,8 @@ export type IndustryHtmlOptions = {
 };
 
 export const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Linkziel fuer href="…": nur #, /pfad oder http(s), sonst "#" (kein javascript:, kein //fremder-host) */
+export const escHref = (href: string) => esc(isSafeHref(href) ? href : "#");
 export const plain = (html: string) =>
   html.replace(/<[^>]+>/g, "").replace(/&nbsp;| /g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 export const deliveryText = (p: IndustryShopProduct) => (p.deliveryTime ? `Lieferzeit ${p.deliveryTime.replace(/\s*-\s*/, "–")}` : "Lieferzeit laut Shop");
@@ -159,7 +161,7 @@ ${p.areas
       <h3>${esc(a.title)}</h3>
       <p>${esc(a.text)}</p>
       <div class="sol"><b>META-Lösung</b>${esc(a.solution)}</div>
-      <a class="link" href="${esc(this.opts.linkHref(a.linkTarget))}">${esc(a.linkLabel)} →</a>
+      <a class="link" href="${escHref(this.opts.linkHref(a.linkTarget))}">${esc(a.linkLabel)} →</a>
     </article>`,
   )
   .join("\n")}
@@ -228,7 +230,7 @@ ${p.areas
   productsHead(allHref: string, allLabel = "Alle passenden Artikel"): string {
     return `<div class="sec-head" id="produkte">
     <div><span class="eyebrow">Direkt bestellen</span><h2>${esc(this.page.productsTitle)}</h2></div>
-    <a class="link" href="${esc(allHref)}">${esc(allLabel)} →</a>
+    <a class="link" href="${escHref(allHref)}">${esc(allLabel)} →</a>
   </div>`;
   }
 
@@ -238,7 +240,7 @@ ${p.areas
 ${this.page.products
   .map((c) => {
     const sp = this.product(c.number);
-    return `    <a class="card" href="${esc(sp.url ?? "#")}">
+    return `    <a class="card" href="${escHref(sp.url ?? "#")}">
       <div class="img"><span class="use">${esc(c.use)}</span>${sp.image ? `<img src="${esc(sp.image)}" alt="">` : ""}</div>
       <div class="body"><h3>${esc(c.title)}</h3><div class="spec">${esc(c.spec)}</div><div class="price">${formatEuro(sp.priceNet, true)}<small>zzgl. MwSt.</small></div><div class="stock">${esc(deliveryText(sp))}</div><span class="btn">In den Warenkorb</span></div>
     </a>`;
@@ -277,7 +279,7 @@ ${this.page.products
       <span class="eyebrow">${esc(p.project.eyebrow)}</span>
       <h3>${esc(p.project.title)}</h3>
       <p>${esc(p.project.text)}</p>
-      <div class="cta-row" style="margin-top:8px"><a class="btn white" href="#beratung">${esc(p.project.cta)}</a>${p.project.link ? `<a class="link" style="color:#fff" href="${esc(p.project.link.href)}">${esc(p.project.link.label)} →</a>` : ""}</div>
+      <div class="cta-row" style="margin-top:8px"><a class="btn white" href="#beratung">${esc(p.project.cta)}</a>${p.project.link ? `<a class="link" style="color:#fff" href="${escHref(p.project.link.href)}">${esc(p.project.link.label)} →</a>` : ""}</div>
     </div>
     <div class="panel">
       <span class="eyebrow">Unterlagen für Ihre Freigabe</span>
@@ -321,7 +323,7 @@ ${this.page.products
   more(all: IndustryPage[], hrefFor: (p: IndustryPage) => string): string {
     const tiles = all
       .filter((o) => o.key !== this.page.key)
-      .map((o) => `<a href="${esc(hrefFor(o))}"><strong>${esc(o.name)}</strong><span>${esc(o.tagline)}</span></a>`)
+      .map((o) => `<a href="${escHref(hrefFor(o))}"><strong>${esc(o.name)}</strong><span>${esc(o.tagline)}</span></a>`)
       .join("");
     return `<div style="margin:48px 0 0">
     <span class="eyebrow">Weitere Branchen</span>
@@ -342,7 +344,7 @@ export function homeTeaserHtml(
   const tiles = pages
     .map((p) => {
       const img = products[p.hero.number]?.image;
-      return `<a class="ht-tile" href="${esc(hrefFor(p))}">
+      return `<a class="ht-tile" href="${escHref(hrefFor(p))}">
       <div class="ht-img">${img ? `<img src="${esc(img)}" alt="${esc(p.hero.alt)}" loading="lazy">` : ""}</div>
       <div class="ht-body"><strong>${esc(p.short)}</strong><span class="ht-goods">${esc(p.teaser.goods)}</span><span class="ht-fact">${esc(p.teaser.fact)}</span><span class="ht-more">${esc(t.more)} →</span></div>
     </a>`;

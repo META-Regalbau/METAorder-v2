@@ -8084,7 +8084,7 @@
       "tableShape": "La fila tiene {{cells}} celdas, la tabla {{columns}} columnas",
       "htmlNotAllowed": "HTML no permitido: {{tag}} (solo <b> y <br>)",
       "tableColumnMissing": "La columna {{column}} no existe en la tabla",
-      "linkTarget": "Destino del enlace: solo ruta (/…) o término de búsqueda",
+      "linkTarget": "Destino del enlace: solo ruta (/…), ancla (#…) o término de búsqueda",
       "linkHttps": "El enlace debe empezar por https://",
       "areaCount": "{{count}} zonas de almacén (cuadrícula: {{expected}})",
       "productCount": "{{count}} productos (carrusel: {{expected}})",

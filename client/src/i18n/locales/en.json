@@ -8087,7 +8087,7 @@
       "tableShape": "Table row has {{cells}} cells, the table {{columns}} columns",
       "htmlNotAllowed": "HTML not allowed: {{tag}} (only <b> and <br>)",
       "tableColumnMissing": "Column {{column}} does not exist in the table",
-      "linkTarget": "Link target: path (/…) or search term only",
+      "linkTarget": "Link target: path (/…), anchor (#…) or search term only",
       "linkHttps": "Link must start with https://",
       "areaCount": "{{count}} storage areas (page grid: {{expected}})",
       "productCount": "{{count}} products (page slider: {{expected}})",

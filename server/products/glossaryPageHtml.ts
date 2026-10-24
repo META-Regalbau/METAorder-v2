@@ -205,7 +205,7 @@ export const GLOSSARY_SCRIPT = `(function(){
     topic=this.getAttribute('data-topic');for(var c=0;c<chips.length;c++)chips[c].classList.toggle('on',chips[c]===this);apply();
   });
   function reveal(){
-    var id=decodeURIComponent(location.hash.slice(1));if(!id)return;var el=document.getElementById(id);
+    var id;try{id=decodeURIComponent(location.hash.slice(1));}catch(e){return;}if(!id)return;var el=document.getElementById(id);
     if(!el||!root.contains(el)||!el.closest('.terms'))return;
     if(el.hidden||(el.parentNode&&el.parentNode.hidden)){q.value='';topic='';for(var c=0;c<chips.length;c++)chips[c].classList.toggle('on',!chips[c].getAttribute('data-topic'));apply();el.scrollIntoView();}
     if(el.classList.contains('term')){el.classList.add('hit');setTimeout(function(){el.classList.remove('hit');},2000);}

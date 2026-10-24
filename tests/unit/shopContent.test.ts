@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   SHOP_CONTENT_SCHEMAS,
   compressIndustryPage,
+  isSafeHref,
   resolveIndustryPage,
   type IndustryPage,
   type StoredIndustryPage,
@@ -119,6 +120,10 @@ describe("Shop-Inhalte: Prüfregeln Branchenseite", () => {
     expect(rules(check((p) => (p.planning.example!.warn = "<b>Pflicht:</b> sichern<br>")))).toEqual([]);
     expect(rules(check((p) => (p.planning.example!.warn = '<a href="x">Pflicht</a>')))).toEqual(["htmlNotAllowed", "htmlNotAllowed"]);
     expect(rules(check((p) => (p.areas[0].linkTarget = "javascript:alert(1)")))).toEqual(["linkTarget"]);
+    expect(rules(check((p) => (p.areas[0].linkTarget = "//example.org/regale")))).toEqual(["linkTarget"]);
+    expect(rules(check((p) => (p.areas[0].linkTarget = "/\\example.org")))).toEqual(["linkTarget"]);
+    expect(rules(check((p) => (p.areas[0].linkTarget = "#beratung")))).toEqual([]);
+    expect(rules(check((p) => (p.areas[0].linkTarget = "COMPACT Doppel")))).toEqual([]);
     expect(rules(check((p) => (p.project.link = { label: "Referenz", href: "http://example.org" })))).toEqual(["linkHttps"]);
   });
 
@@ -178,5 +183,17 @@ describe("Shop-Inhalte: Prüfregeln Startseite und gemeinsame Texte", () => {
     c.contact.tel = "02932 957-0";
     c.contact.mail = "digital-service";
     expect(rules(checkCommon(c))).toEqual(["contactTel", "contactMail"]);
+  });
+});
+
+describe("Shop-Inhalte: erlaubte Linkziele", () => {
+  it("lässt Sprungmarken, Shop-Pfade und http(s)-Adressen zu", () => {
+    for (const href of ["#", "#beratung", "/branchen/handwerk-werkstatt", "/search?search=Reifenregal", "https://www.meta-online.com/de-DE/referenzen/raedlog", "http://localhost:8000/detail/1"])
+      expect(isSafeHref(href), href).toBe(true);
+  });
+
+  it("lehnt Skript-Links, fremde Hosts ohne Schema und Steuerzeichen ab", () => {
+    for (const href of ["javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,x", "//example.org", "/\\example.org", "https:///x", " /pfad", "/pfad\nx", "#a b", "mailto:x@example.org", ""])
+      expect(isSafeHref(href), href).toBe(false);
   });
 });

@@ -215,6 +215,10 @@ describe("Regal-Schnellkonfigurator: Adresse und Produktseite", () => {
     expect(qc.parseShelfName("META MULTISTRONG M | Kragarmregal | Grundregal | 3000 x 1000 x 500 mm | Armlast 430 kg | doppelseitig | 5+1 Ebenen").double).toBe(true);
   });
 
+  it("kaputte Kodierung in der Adresse überspringt nur den Parameter", () => {
+    expect({ ...qc.readQuery("?hoehe=2000&laenge=50%&tiefe=%E0%A4%A") }).toEqual({ h: 2000 });
+  });
+
   it("Adressen der ersten Fassung gelten weiter", () => {
     expect({ ...qc.readQuery("?hoehe=2000&fachlast=230&bauform=einzel") }).toEqual({ h: 2000, load: 230, double: false });
   });
