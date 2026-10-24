@@ -12,6 +12,7 @@ import {
   type B2BOfferCustomerContext,
 } from "./b2bOfferCreateContext";
 import { logger } from "../lib/logger";
+import { assertSafeShopwareUrl } from "../shopware/safeShopwareUrl";
 
 const log = logger.child({ component: "b2b/b2bSellersClient" });
 
@@ -149,6 +150,8 @@ export class B2BSellersClient {
   }
 
   private async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // IDs aus Anfragen landen im Pfad: keine Pfad-Tricks (../, %2F) an die Admin-API, siehe safeShopwareUrl.ts
+    assertSafeShopwareUrl(url);
     const knownMissing = cachedMissingEntityResponse(url);
     if (knownMissing) return knownMissing;
     let token = await this.authenticate();

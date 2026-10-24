@@ -1,35 +1,22 @@
-type Bucket = { count: number; resetAt: number };
-
-const buckets = new Map<string, Bucket>();
+/**
+ * Anfragegrenzen der öffentlichen Angebotsseite (/api/public/offers/:token/…): je IP für Abrufe, je IP und
+ * Token-Anfang für Annahme/Ablehnung. Begrenzter Speicher (windowRateLimit.ts): zufällige Tokens oder IPs
+ * füllen ihn nicht mehr dauerhaft.
+ */
+import { createWindowRateLimiter } from "../lib/windowRateLimit";
 
 const WINDOW_MS = 60_000;
 const MAX_GET = 120;
 const MAX_POST = 30;
+const MAX_KEYS = 20_000;
 
-function prune(key: string, now: number): Bucket {
-  const b = buckets.get(key);
-  if (!b || now > b.resetAt) {
-    const fresh = { count: 0, resetAt: now + WINDOW_MS };
-    buckets.set(key, fresh);
-    return fresh;
-  }
-  return b;
-}
+const getLimiter = createWindowRateLimiter({ windowMs: WINDOW_MS, max: MAX_GET, maxKeys: MAX_KEYS });
+const mutationLimiter = createWindowRateLimiter({ windowMs: WINDOW_MS, max: MAX_POST, maxKeys: MAX_KEYS });
 
 export function rateLimitPublicOfferGet(ip: string): boolean {
-  const now = Date.now();
-  const key = `g:${ip}`;
-  const b = prune(key, now);
-  b.count += 1;
-  buckets.set(key, b);
-  return b.count <= MAX_GET;
+  return getLimiter.hit(`g:${ip}`);
 }
 
 export function rateLimitPublicOfferMutation(ip: string, tokenPrefix: string): boolean {
-  const now = Date.now();
-  const key = `m:${ip}:${tokenPrefix.slice(0, 12)}`;
-  const b = prune(key, now);
-  b.count += 1;
-  buckets.set(key, b);
-  return b.count <= MAX_POST;
+  return mutationLimiter.hit(`m:${ip}:${tokenPrefix.slice(0, 12)}`);
 }

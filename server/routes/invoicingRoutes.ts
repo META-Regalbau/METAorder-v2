@@ -1,5 +1,6 @@
 // Mahnwesen und Buchhaltung: Mahnungen (Vorschau/Versand/PDF), Buchhaltungs-Abgleich und Shop-Fakturen-Import.
-import { requireAuth, requireViewDocuments, requireManageDocuments, requireViewAccounting, requireCsrf } from "../auth/auth";
+import { requireAuth, requireViewDocuments, requireManageDocuments, requireViewAccounting, requireManageAccounting, requireCsrf } from "../auth/auth";
+import { SHOPWARE_ID_RE } from "../shopware/safeShopwareUrl";
 import { storage } from "../storage";
 import { defaultDunningSettings, getMirrorOrdersLikeLive, getSalesChannelFilter, uploadRateLimiter } from "./routeHelpers";
 import { ShopwareClient } from "../shopware/shopware";
@@ -241,9 +242,10 @@ export function registerInvoicingRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/accounting/confirm", requireAuth, requireViewAccounting, async (req, res) => {
+  // Setzt den Zahlungsstatus in Shopware: Schreibrecht, nicht nur Ansicht
+  app.post("/api/accounting/confirm", requireAuth, requireManageAccounting, async (req, res) => {
     const schema = z.object({
-      orderId: z.string().min(1),
+      orderId: z.string().regex(SHOPWARE_ID_RE, "Invalid order id"),
     });
 
     try {

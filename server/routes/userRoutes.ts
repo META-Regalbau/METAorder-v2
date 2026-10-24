@@ -6,12 +6,31 @@ import { insertUserSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import type { Request, Express } from "express";
 import { logger } from "../lib/logger";
+import { isAdministrator, roleChangeError, userChangeError } from "../auth/privilegeGuard";
 
 const log = logger.child({ component: "routes/userRoutes" });
 
 /** Wer hat geändert (Protokoll). */
 function actor(req: any): { userId: string | null; username: string | null } {
   return { userId: req.user?.id ?? null, username: req.user?.username ?? null };
+}
+
+/** Teilen Handelnder und Zielbenutzer mindestens einen Mandanten? (Benutzer sind global, Mandanten je Zuordnung) */
+async function sharesTenant(actorId: string | undefined, targetId: string): Promise<boolean> {
+  if (!actorId) return false;
+  const [mine, theirs] = await Promise.all([storage.getTenantsForUser(actorId), storage.getTenantsForUser(targetId)]);
+  const ids = new Set(mine.map((t) => t.id));
+  return theirs.some((t) => ids.has(t.id));
+}
+
+/** Fehlertext, wenn req.user den Benutzer targetId nicht ändern/löschen darf (privilegeGuard.ts), sonst null. */
+async function userGuard(req: any, targetId: string): Promise<{ status: number; error: string } | null> {
+  if (isAdministrator(req.user)) return null;
+  const target = await storage.getUser(targetId);
+  if (!target) return { status: 404, error: "User not found" };
+  const targetRole = (target as any).roleId ? await storage.getRole((target as any).roleId) : null;
+  const error = userChangeError(req.user, target as any, targetRole, await sharesTenant(req.user?.id, targetId));
+  return error ? { status: 403, error } : null;
 }
 
 /** Rechte-Unterschied für das Protokoll: neu erteilte und entzogene Rechte. */
@@ -173,8 +192,17 @@ export function registerUserRoutes(app: Express): void {
   // User management routes (Requires manageUsers permission)
   app.get("/api/users", requireAuth, requireManageUsers, async (req, res) => {
     try {
-      const users = await storage.getAllUsers();
+      const allUsers = await storage.getAllUsers();
       const roles = await storage.getAllRoles();
+      // Benutzer sind global: Nicht-Administratoren sehen nur Benutzer, mit denen sie einen Mandanten teilen
+      let users = allUsers;
+      if (!isAdministrator(req.user)) {
+        const myTenants = new Set((await storage.getTenantsForUser((req.user as any).id)).map((t) => t.id));
+        const visible = await Promise.all(
+          allUsers.map(async (u) => (await storage.getTenantsForUser(u.id)).some((t) => myTenants.has(t.id))),
+        );
+        users = allUsers.filter((_, i) => visible[i]);
+      }
       
       const usersWithRoles = users.map(user => {
         const { password, ...userWithoutPassword } = user;
@@ -201,6 +229,11 @@ export function registerUserRoutes(app: Express): void {
         skills: z.array(z.string()).optional(),
       }).parse(req.body);
       
+      const requestedRole = await storage.getRole(validated.roleId);
+      if (!requestedRole) return res.status(400).json({ error: "Invalid role ID" });
+      const roleError = roleChangeError(req.user as any, requestedRole);
+      if (roleError) return res.status(403).json({ error: roleError });
+
       const hashedPassword = await bcrypt.hash(validated.password, 10);
       
       const user = await storage.createUser({
@@ -259,6 +292,8 @@ export function registerUserRoutes(app: Express): void {
       });
       
       const validated = updateSchema.parse(req.body);
+      const denied = await userGuard(req, req.params.id);
+      if (denied) return res.status(denied.status).json({ error: denied.error });
       const updates: any = { ...validated };
       
       // Remove empty strings
@@ -277,6 +312,8 @@ export function registerUserRoutes(app: Express): void {
         if (!role) {
           return res.status(400).json({ error: "Invalid role ID" });
         }
+        const roleError = roleChangeError(req.user as any, role);
+        if (roleError) return res.status(403).json({ error: roleError });
         updates.role = role.name.toLowerCase() === "administrator" ? "admin" : "employee";
       }
 
@@ -323,6 +360,8 @@ export function registerUserRoutes(app: Express): void {
 
   app.delete("/api/users/:id", requireAuth, requireManageUsers, async (req, res) => {
     try {
+      const denied = await userGuard(req, req.params.id);
+      if (denied) return res.status(denied.status).json({ error: denied.error });
       const userBefore = await storage.getUser(req.params.id);
       const deleted = await storage.deleteUser(req.params.id);
       
@@ -405,6 +444,8 @@ export function registerUserRoutes(app: Express): void {
       });
       
       const validated = roleSchema.parse(req.body);
+      const createError = roleChangeError(req.user as any, validated);
+      if (createError) return res.status(403).json({ error: createError });
       const role = await storage.createRole({
         ...validated,
         salesChannelIds: validated.salesChannelIds || null,
@@ -484,6 +525,13 @@ export function registerUserRoutes(app: Express): void {
       
       const validated = roleSchema.parse(req.body);
       const roleBefore = await storage.getRole(req.params.id);
+      if (!roleBefore) return res.status(404).json({ error: "Role not found" });
+      const updateError = roleChangeError(
+        req.user as any,
+        { name: validated.name ?? roleBefore.name, permissions: validated.permissions ?? roleBefore.permissions },
+        roleBefore,
+      );
+      if (updateError) return res.status(403).json({ error: updateError });
       const role = await storage.updateRole(req.params.id, validated);
       
       if (role) {
@@ -525,6 +573,10 @@ export function registerUserRoutes(app: Express): void {
   app.delete("/api/roles/:id", requireAuth, requireManageRoles, async (req, res) => {
     try {
       const roleBefore = await storage.getRole(req.params.id);
+      if (roleBefore) {
+        const deleteError = roleChangeError(req.user as any, { name: roleBefore.name, permissions: [] }, roleBefore);
+        if (deleteError) return res.status(403).json({ error: deleteError });
+      }
       const deleted = await storage.deleteRole(req.params.id);
       
       if (!deleted) {

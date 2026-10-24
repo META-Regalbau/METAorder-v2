@@ -29,27 +29,10 @@ export function useNotifications() {
     }
   }, [unreadData]);
 
-  // Connect to SSE stream using fetch-event-source (supports Authorization headers)
+  // Benachrichtigungs-Stream per fetch-event-source, angemeldet über das Login-Cookie
   const connectToStream = useCallback(async () => {
     // Don't create duplicate connections
     if (abortControllerRef.current) {
-      return;
-    }
-
-    // Get token from cookie via API (cookies not accessible in JS due to httpOnly)
-    let token: string;
-    try {
-      const tokenResponse = await fetch("/api/auth/token", {
-        credentials: 'include',
-      });
-      if (!tokenResponse.ok) {
-        console.error("[Notifications] Failed to get auth token");
-        return;
-      }
-      const tokenData = await tokenResponse.json();
-      token = tokenData.token;
-    } catch (error) {
-      console.error("[Notifications] Error fetching token:", error);
       return;
     }
 
@@ -57,11 +40,10 @@ export function useNotifications() {
     abortControllerRef.current = abortController;
 
     try {
+      // Anmeldung über das httpOnly-Login-Cookie (gleiche Domain); das Token ist für JavaScript nicht lesbar
       await fetchEventSource("/api/notifications/stream", {
         signal: abortController.signal,
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
+        credentials: "same-origin",
         onopen: async (response) => {
           if (response.ok) {
             console.log("[Notifications] SSE connected");

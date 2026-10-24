@@ -74,10 +74,28 @@ const TOKEN_RE =
   /<!\[CDATA\[([\s\S]*?)\]\]>|<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!DOCTYPE(?:[^[>]|\[[\s\S]*?\])*>|<(\/?)([A-Za-z_][\w:.-]*)((?:\s+[^\s=>/]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/g;
 const ATTR_RE = /([^\s=>/]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
-/** Kleiner toleranter XML-Parser: Namensraum-Präfixe fallen weg, falsch geschlossene Tags werden verziehen. */
+/**
+ * Grenzen gegen präparierte Mail-Anhänge: Bestell-XML (openTRANS/cXML) ist weit kleiner und flacher.
+ * Größere Dokumente gelten nicht als Bestell-XML; tiefer verschachtelte Knoten hängen flach am letzten offenen Knoten.
+ */
+export const MAX_XML_CHARS = 5_000_000;
+export const MAX_XML_DEPTH = 200;
+
+/**
+ * Kleiner toleranter XML-Parser: Namensraum-Präfixe fallen weg, falsch geschlossene Tags werden verziehen.
+ * Laufzeit linear: Ein schließendes Tag sucht nur, wenn ein gleichnamiges Tag offen ist, und was es dabei
+ * durchläuft, wird geschlossen (früher quadratisch – ein 1-MB-Anhang blockierte den Server minutenlang).
+ */
 export function parseXml(src: string): XmlNode | null {
+  if (src.length > MAX_XML_CHARS) return null;
   const root: XmlNode = { name: "#root", attrs: {}, children: [], text: "" };
   const stack: XmlNode[] = [root];
+  // Anzahl offener Tags je Name (ohne #root)
+  const open = new Map<string, number>();
+  const closeFrom = (idx: number) => {
+    for (let i = idx; i < stack.length; i++) open.set(stack[i].name, (open.get(stack[i].name) ?? 1) - 1);
+    stack.length = idx;
+  };
   let m: RegExpExecArray | null;
   TOKEN_RE.lastIndex = 0;
   while ((m = TOKEN_RE.exec(src)) !== null) {
@@ -87,8 +105,10 @@ export function parseXml(src: string): XmlNode | null {
     } else if (m[3] !== undefined) {
       const name = localName(m[3]);
       if (m[2] === "/") {
-        const idx = stack.map((n) => n.name).lastIndexOf(name);
-        if (idx > 0) stack.length = idx;
+        if (!open.get(name)) continue;
+        let idx = stack.length - 1;
+        while (idx > 0 && stack[idx].name !== name) idx--;
+        if (idx > 0) closeFrom(idx);
         continue;
       }
       const attrs: Record<string, string> = {};
@@ -97,7 +117,10 @@ export function parseXml(src: string): XmlNode | null {
       while ((a = ATTR_RE.exec(m[4] ?? "")) !== null) attrs[localName(a[1])] = decodeEntities(a[2] ?? a[3] ?? "");
       const node: XmlNode = { name, attrs, children: [], text: "" };
       top.children.push(node);
-      if (m[5] !== "/") stack.push(node);
+      if (m[5] !== "/" && stack.length <= MAX_XML_DEPTH) {
+        stack.push(node);
+        open.set(name, (open.get(name) ?? 0) + 1);
+      }
     } else if (m[6] !== undefined) {
       top.text += decodeEntities(m[6]);
     }

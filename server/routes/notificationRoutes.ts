@@ -92,13 +92,13 @@ export function registerNotificationRoutes(app: Express): void {
 
   // Server-Sent Events stream for real-time notifications
   app.get("/api/notifications/stream", async (req: Request, res: Response) => {
-    // Extract JWT from Authorization header
+    // Login-Cookie (gleiche Domain, httpOnly); Bearer-Header bleibt für andere Clients möglich.
+    // Früher holte der Browser das Token über /api/auth/token in JavaScript – das ist entfallen.
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "No authorization header" });
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : (req as any).cookies?.auth_token;
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized: Please login" });
     }
-
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
 
     // Verify JWT token
     let userId: string;
@@ -109,6 +109,8 @@ export function registerNotificationRoutes(app: Express): void {
         return res.status(401).json({ error: "Invalid token" });
       }
       userId = decoded.userId;
+      // Gelöschte Benutzer bekommen keinen Stream mehr, auch wenn ihr Token noch läuft
+      if (!(await storage.getUser(userId))) return res.status(401).json({ error: "Invalid token" });
     } catch (error) {
       return res.status(401).json({ error: "Invalid token" });
     }

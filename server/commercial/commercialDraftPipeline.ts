@@ -127,6 +127,8 @@ export type RunOfferDraftPipelineParams = {
   emailContext?: string;
   /** Commercial Agent: kombinierter Text weiterer Anhänge derselben Mail */
   siblingPdfExcerpts?: string;
+  /** Commercial Agent: Adresse des Kundenabsenders (maßgeblich für die Kundenzuordnung) */
+  senderEmail?: string;
   /** Optional: Hauptdokument-Text ohne erneute Dateiextraktion */
   primaryDocumentText?: string | null;
   /** Klassifikation Angebot vs. Bestellung (Commercial Agent / manueller Unified-Upload) */
@@ -180,6 +182,7 @@ export async function runOfferDraftPipeline(
     createdByUserId,
     emailContext,
     siblingPdfExcerpts,
+    senderEmail,
     primaryDocumentText,
     commercialIntentMetadata,
     signatureImageBuffers,
@@ -418,6 +421,7 @@ export async function runOfferDraftPipeline(
         customerAutoCreateMinConfidence: agentComm.customerAutoCreateMinConfidence,
         minRankedEmailScoreForAutoCreate: agentComm.minRankedEmailScoreForAutoCreate,
         allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
+        senderEmail,
       });
     } catch (e) {
       log.error({ err: e }, "[Offer Draft Pipeline] Customer error:");
@@ -580,6 +584,7 @@ export async function runOrderDraftPipeline(
     createdByUserId,
     emailContext,
     siblingPdfExcerpts,
+    senderEmail,
     primaryDocumentText,
     commercialIntentMetadata,
     signatureImageBuffers,
@@ -779,6 +784,7 @@ export async function runOrderDraftPipeline(
         customerAutoCreateMinConfidence: agentComm.customerAutoCreateMinConfidence,
         minRankedEmailScoreForAutoCreate: agentComm.minRankedEmailScoreForAutoCreate,
         allowCustomerAutoCreate: agentComm.customerAutoCreateEnabled === true,
+        senderEmail,
       });
     } catch (e) {
       log.error({ err: e }, "[Order Draft Pipeline] Customer error:");

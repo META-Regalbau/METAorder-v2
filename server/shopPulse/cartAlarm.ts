@@ -21,6 +21,7 @@ import {
 } from "@shared/shopPulseCart";
 import { normalizeActionScope } from "@shared/shopPulseWeekly";
 import type { ActionCandidate } from "./actionLog";
+import { createWindowRateLimiter } from "../lib/windowRateLimit";
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
@@ -48,16 +49,17 @@ export function verifyCartSignature(secret: string, timestampHeader: unknown, si
 // ---------------------------------------------------------------------------------------------
 // Rate-Limit je Mandant (im Speicher, je Minute)
 
-const buckets = new Map<string, { count: number; resetAt: number }>();
+// Gezählt wird erst nach geprüfter Signatur (Schlüssel = Mandant), siehe shopPulseCartRoutes/customerMailRoutes:
+// sonst könnten Fremde mit der Mandanten-ID die Quote aufbrauchen. Obergrenze für die Zahl der Schlüssel.
+const cartSignalLimiter = createWindowRateLimiter({ windowMs: 60_000, max: RULES.ratePerMinute, maxKeys: 1_000 });
 
 export function cartSignalRateOk(key: string, now = Date.now()): boolean {
-  const b = buckets.get(key);
-  if (!b || now > b.resetAt) {
-    buckets.set(key, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-  b.count += 1;
-  return b.count <= RULES.ratePerMinute;
+  return cartSignalLimiter.hit(key, now);
+}
+
+/** Mandanten-IDs sind UUIDs; alles andere wird vor jeder Datenbankabfrage abgewiesen. */
+export function isTenantIdHeader(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
 // ---------------------------------------------------------------------------------------------

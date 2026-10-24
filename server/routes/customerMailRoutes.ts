@@ -10,7 +10,7 @@ import { requireAdministrator, requireAuth, requireCsrf, requireViewCrm } from "
 import { logger } from "../lib/logger";
 import { storage } from "../storage";
 import { publicAppBaseUrl } from "../commercial/emailIntakeTeams";
-import { cartSignalRateOk } from "../shopPulse/cartAlarm";
+import { cartSignalRateOk, isTenantIdHeader } from "../shopPulse/cartAlarm";
 import { brevoErrorText } from "../customerMails/brevoClient";
 import {
   cancelRun,
@@ -120,8 +120,7 @@ export function registerCustomerMailRoutes(app: Express): void {
   app.post("/api/public/customer-mails/brevo", async (req: Request, res: Response) => {
     const tenantHeader = req.get("x-meta-tenant")?.trim() ?? "";
     const raw = req.rawBody instanceof Buffer ? req.rawBody : null;
-    if (!tenantHeader || !raw || raw.length > MAX_WEBHOOK_BODY) return res.status(400).json({ error: "Invalid Brevo event" });
-    if (!cartSignalRateOk(`customer-mails:${tenantHeader}`)) return res.status(429).json({ error: "Too many Brevo events" });
+    if (!isTenantIdHeader(tenantHeader) || !raw || raw.length > MAX_WEBHOOK_BODY) return res.status(400).json({ error: "Invalid Brevo event" });
     try {
       const tenant = await storage.getTenant(tenantHeader).catch(() => undefined);
       const token = tenant ? await getWebhookToken(storage, tenant.id) : null;
@@ -129,6 +128,8 @@ export function registerCustomerMailRoutes(app: Express): void {
         moduleLog.warn({ tenant: tenantHeader.slice(0, 40), ip: req.ip }, "Kundenmails: Brevo-Ereignis abgelehnt");
         return res.status(401).json({ error: "Invalid Brevo event token" });
       }
+      // Erst nach geprüftem Token zählen: Fremde können die Quote des Mandanten nicht aufbrauchen
+      if (!cartSignalRateOk(`customer-mails:${tenant.id}`)) return res.status(429).json({ error: "Too many Brevo events" });
       const result = await handleBrevoWebhook(tenant.id, req.body, new Date());
       res.status(200).json(result);
     } catch (error) {

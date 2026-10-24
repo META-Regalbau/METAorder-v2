@@ -107,6 +107,11 @@ export type ProcessCommercialDocumentParams = {
   primaryContainsEmailBody?: boolean;
   /** Anzeigename aus From (Kopfzeile) — ergänzt den Extraktionskontext für Firma/Name */
   fromDisplayName?: string;
+  /**
+   * Adresse des Kundenabsenders: From-Kopfzeile, bei interner Weiterleitung der Ursprungsabsender. Maßgeblich für
+   * die Kundenzuordnung (Adressen im Mailtext kann jeder hineinschreiben, siehe draftCustomerEmailResolution.ts).
+   */
+  senderEmail?: string;
   /** Kleine Bilder derselben Nachricht (Signatur) für optionale Vision-Erkennung */
   signatureImageBuffers?: Array<{ buffer: Buffer; mimeType: string }>;
   /**
@@ -177,6 +182,7 @@ async function processCommercialDocumentInner(
     intentDocumentTextPreview,
     primaryContainsEmailBody = false,
     fromDisplayName,
+    senderEmail,
     signatureImageBuffers,
     uploadHint = null,
     skipDedupe = false,
@@ -278,6 +284,7 @@ async function processCommercialDocumentInner(
         .slice(0, 12000);
   const draftExtractionMail = {
     emailContext: emailCtxMerged || undefined,
+    senderEmail,
     siblingPdfExcerpts:
       !primaryContainsEmailBody && intentDocumentTextPreview?.trim()
         ? intentDocumentTextPreview.trim()

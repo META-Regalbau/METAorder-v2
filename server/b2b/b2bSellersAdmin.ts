@@ -1,5 +1,6 @@
 import { getSharedShopwareToken, invalidateSharedShopwareToken } from "../shopware/shopwareTokenCache";
 import { cachedMissingEntityResponse, traceShopwareResponse } from "../shopware/shopwareHttpTrace";
+import { assertSafeShopwareUrl, isShopwareId, UnsafeShopwareUrlError } from "../shopware/safeShopwareUrl";
 import type { ShopwareSettings } from "@shared/schema";
 import type { B2BEntityMapping } from "@shared/b2bEntityMapping";
 import {
@@ -191,6 +192,8 @@ export class B2BSellersAdminClient {
   }
 
   async makeAuthenticatedRequest(url: string, options: RequestInit = {}): Promise<Response> {
+    // IDs aus Anfragen landen im Pfad: keine Pfad-Tricks (../, %2F) an die Admin-API, siehe safeShopwareUrl.ts
+    assertSafeShopwareUrl(url);
     const knownMissing = cachedMissingEntityResponse(url);
     if (knownMissing) return knownMissing;
     let token = await this.authenticate();
@@ -328,6 +331,7 @@ export class B2BSellersAdminClient {
     payload: Record<string, unknown>,
     options?: { skipTriggerFlow?: boolean },
   ): Promise<void> {
+    if (!isShopwareId(id)) throw new UnsafeShopwareUrlError();
     const entityName = this.resolveEntityName(entityKey);
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}`, {
       method: "PATCH",
@@ -341,6 +345,7 @@ export class B2BSellersAdminClient {
   }
 
   async deleteEntity(entityKey: keyof B2BEntityMapping, id: string): Promise<void> {
+    if (!isShopwareId(id)) throw new UnsafeShopwareUrlError();
     const entityName = this.resolveEntityName(entityKey);
     const response = await this.makeAuthenticatedRequest(`${this.baseUrl}/api/${entityName}/${id}`, {
       method: "DELETE",
